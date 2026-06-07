@@ -812,11 +812,72 @@ function restoreSession(){
     function getRetestRowKey(row){return String(row.grade_result_id || row.id || '');}
     function updateRetestSummary(rows){el('retestTotalCount').textContent=rows.length; el('retestPendingCount').textContent=rows.filter(r=>r.retest_request_status==='pending_approval').length; el('retestApprovedCount').textContent=rows.filter(r=>r.retest_request_status==='approved').length; el('retestNotSubmittedCount').textContent=rows.filter(r=>!r.retest_request_status||r.retest_request_status==='rejected').length;}
     async function fetchRetestRowsBase(year,term,studentCode){
-      let query=supabaseClient.from('grade_results').select('id,student_id,student_code,student_name,student_no,academic_year,term,class_level,room,grade_code,retest_grade_code,subject_offering_id,subject_id,teacher_id,subject_code,subject_name,is_active').eq('teacher_id',state.currentUser.id).eq('is_active',true).in('grade_code',['0','ร','มส','มผ']).order('class_level',{ascending:true}).order('room',{ascending:true}).order('student_no',{ascending:true}).order('student_code',{ascending:true});
-      if(year!==null&&year!==undefined) query=query.eq('academic_year',year); if(term!==null&&term!==undefined) query=query.eq('term',term); if(studentCode) query=query.ilike('student_code',`%${studentCode}%`);
-      const {data,error}=await query; if(error)throw error; return data||[];
+      const buildQuery = () => {
+        let query = supabaseClient
+          .from('grade_results')
+          .select('id,student_id,student_code,student_name,student_no,academic_year,term,class_level,room,grade_code,retest_grade_code,subject_offering_id,subject_id,teacher_id,subject_code,subject_name,is_active')
+          .eq('teacher_id', state.currentUser.id)
+          .eq('is_active', true)
+          .in('grade_code', ['0','ร','มส','มผ'])
+          .order('class_level', { ascending:true })
+          .order('room', { ascending:true })
+          .order('student_no', { ascending:true })
+          .order('student_code', { ascending:true });
+
+        if(year !== null && year !== undefined){
+          query = query.eq('academic_year', year);
+        }
+
+        if(term !== null && term !== undefined){
+          query = query.eq('term', term);
+        }
+
+        if(studentCode){
+          query = query.ilike('student_code', `%${studentCode}%`);
+        }
+
+        return query;
+      };
+
+      return await fetchAllPages(buildQuery, 1000);
     }
-    async function fetchRetestRequests(ids){if(!ids.length)return new Map(); const {data,error}=await supabaseClient.from('grade_retest_requests').select('id,grade_result_id,requested_retest_grade_code,status,submitted_at,updated_at,is_active').in('grade_result_id',ids).eq('is_active',true); if(error)throw error; const map=new Map(); (data||[]).forEach(req=>{const key=String(req.grade_result_id||''); const old=map.get(key); if(!old || new Date(req.updated_at||req.submitted_at||0)>=new Date(old.updated_at||old.submitted_at||0)) map.set(key,req);}); return map;}
+    async function fetchRetestRequests(ids){
+      const cleanIds = [...new Set((ids || []).filter(Boolean).map(String))];
+      const map = new Map();
+
+      if(!cleanIds.length){
+        return map;
+      }
+
+      for(let i = 0; i < cleanIds.length; i += 80){
+        const chunk = cleanIds.slice(i, i + 80);
+
+        const rows = await fetchAllPages(() =>
+          supabaseClient
+            .from('grade_retest_requests')
+            .select('id,grade_result_id,requested_retest_grade_code,status,submitted_at,updated_at,is_active')
+            .in('grade_result_id', chunk)
+            .eq('is_active', true),
+          1000
+        );
+
+        (rows || []).forEach(req => {
+          const key = String(req.grade_result_id || '');
+          if(!key) return;
+
+          const old = map.get(key);
+          if(
+            !old ||
+            new Date(req.updated_at || req.submitted_at || 0) >=
+            new Date(old.updated_at || old.submitted_at || 0)
+          ){
+            map.set(key, req);
+          }
+        });
+      }
+
+      return map;
+    }
     async function loadRetestRows(){try{const yearText=safeText(el('retestYear').value,''); const termText=safeText(el('retestTerm').value,''); const studentCode=safeText(el('retestStudentCodeKeyword').value,''); if(!yearText && !termText && !studentCode){renderRetestRows([]); setStatus('retestStatus','กรุณาเลือกปีการศึกษา/ภาคเรียน หรือค้นหารหัสนักเรียน','warn'); return;} showLoading('กำลังโหลดผลการเรียน...'); setStatus('retestStatus','กำลังโหลดผลการเรียน...','info'); const base=await fetchRetestRowsBase(yearText?safeNum(yearText):null,termText?safeNum(termText):null,studentCode); const map=await fetchRetestRequests(base.map(r=>r.id).filter(Boolean)); state.retestRows=base.map(r=>{const req=map.get(String(r.id)); return {...r,grade_result_id:r.id,retest_request_id:req?.id||null,requested_retest_grade_code:req?.requested_retest_grade_code||'',retest_request_status:req?.status||''};}); state.retestEditingId=null; renderRetestRows(state.retestRows); setStatus('retestStatus',state.retestRows.length?`พบรายการผลการเรียน ${state.retestRows.length} รายการ`:'ไม่พบรายการตามเงื่อนไข',state.retestRows.length?'success':'warn');}catch(err){console.error(err); renderRetestRows([]); setStatus('retestStatus',err.message||'โหลดรายการไม่สำเร็จ','error'); showToast('โหลดรายการไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error');}finally{hideLoading();}}
     function renderRetestRows(rows){const list=el('retestList'); updateRetestSummary(rows); if(!rows.length){list.innerHTML='<div class="card empty">ไม่พบรายกาผลการเรียนตามเงื่อนไขที่เลือก</div>'; return;} list.innerHTML=rows.map(row=>{const key=getRetestRowKey(row); const editing=state.retestEditingId===key; const original=normalizeGradeValue(row.grade_code); const options=getRetestOptionsByOriginalGrade(original); const requested=normalizeGradeValue(row.requested_retest_grade_code); const status=row.retest_request_status; const canEdit=status!=='approved'; let body=''; if(editing){const selected=requested || (options.length===1?options[0]:''); body=`<select class="select" data-retest-select="${escapeHtml(key)}"><option value="">เลือกผลแก้ตัว</option>${options.map(o=>`<option value="${escapeHtml(o)}" ${selected===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select><div class="retest-actions"><button class="btn btn-success" data-retest-save="${escapeHtml(key)}">ส่งผล</button><button class="btn btn-secondary" data-retest-cancel="${escapeHtml(key)}">ยกเลิก</button></div>`;}else{body=`<div class="row-between"><div>${requested?gradePill(requested):'<span class="student-sub">ยังไม่เลือกผลแก้ตัว</span>'}</div>${retestStatusBadge(status)}</div>${canEdit?`<button class="btn btn-primary btn-block" style="margin-top:12px;" data-retest-edit="${escapeHtml(key)}">${status==='pending_approval'?'แก้ไขผล':'สอบแก้ตัว'}</button>`:''}`;} return `<div class="card"><div class="row-between"><div><div class="mono">${escapeHtml(row.student_code||'-')}</div><div class="student-main">${escapeHtml(row.student_name||'-')}</div><div class="student-sub">${escapeHtml(row.class_level||'-')}/${escapeHtml(row.room||'-')} • ปี ${escapeHtml(row.academic_year||'-')} เทอม ${escapeHtml(row.term||'-')}</div></div>${gradePill(original)}</div><div class="subject-box"><div class="mono">${escapeHtml(row.subject_code||'-')}</div><div class="subject-name">${escapeHtml(row.subject_name||'-')}</div></div><div style="margin-top:12px;">${body}</div></div>`;}).join(''); bindRetestButtons();}
     function bindRetestButtons(){document.querySelectorAll('[data-retest-edit]').forEach(b=>b.addEventListener('click',()=>{state.retestEditingId=String(b.dataset.retestEdit||''); renderRetestRows(state.retestRows);})); document.querySelectorAll('[data-retest-cancel]').forEach(b=>b.addEventListener('click',()=>{state.retestEditingId=null; renderRetestRows(state.retestRows);})); document.querySelectorAll('[data-retest-save]').forEach(b=>b.addEventListener('click',()=>saveRetestRequest(String(b.dataset.retestSave||''))));}
@@ -1374,7 +1435,52 @@ function bookingMoveReserveMonth(offset){
   };
 }
 
-    async function loadMyReservations(showStatus=true){try{if(!state.currentUser)return; const f=getReservationFilters(); let q=supabaseClient.from('free_period_reservations').select('id,slot_id,slot_code,teacher_id,teacher_code,teacher_full_name,academic_year,term,class_level,room,class_room,day_of_week,period_no,reserve_date,status,created_at,cancelled_at,cancelled_by_teacher_code').eq('status','reserved').eq('teacher_code',state.currentUser.teacher_code).order('reserve_date',{ascending:false}).order('period_no',{ascending:true}); if(f.academic_year)q=q.eq('academic_year',f.academic_year); if(f.term)q=q.eq('term',f.term); const {data,error}=await q; if(error)throw error; state.myReservations=data||[]; renderMyReservations(state.myReservations); updateBookingSummary(); if(showStatus)setStatus('bookingMineStatus',state.myReservations.length?`พบรายการจองของฉัน ${state.myReservations.length} รายการ`:'ยังไม่มีรายการจองของฉัน',state.myReservations.length?'success':'warn');}catch(err){console.error(err); state.myReservations=[]; renderMyReservations([]); showToast('โหลดรายการจองไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error');}}
+    async function loadMyReservations(showStatus=true){
+      try{
+        if(!state.currentUser) return;
+
+        const f = getReservationFilters();
+
+        const rows = await fetchAllPages(() => {
+          let q = supabaseClient
+            .from('free_period_reservations')
+            .select('id,slot_id,slot_code,teacher_id,teacher_code,teacher_full_name,academic_year,term,class_level,room,class_room,day_of_week,period_no,reserve_date,status,created_at,cancelled_at,cancelled_by_teacher_code')
+            .eq('status', 'reserved')
+            .eq('teacher_code', state.currentUser.teacher_code)
+            .order('reserve_date', { ascending:false })
+            .order('period_no', { ascending:true });
+
+          if(f.academic_year){
+            q = q.eq('academic_year', f.academic_year);
+          }
+
+          if(f.term){
+            q = q.eq('term', f.term);
+          }
+
+          return q;
+        }, 1000);
+
+        state.myReservations = rows || [];
+        renderMyReservations(state.myReservations);
+        updateBookingSummary();
+
+        if(showStatus){
+          setStatus(
+            'bookingMineStatus',
+            state.myReservations.length
+              ? `พบรายการจองของฉัน ${state.myReservations.length} รายการ`
+              : 'ยังไม่มีรายการจองของฉัน',
+            state.myReservations.length ? 'success' : 'warn'
+          );
+        }
+      }catch(err){
+        console.error(err);
+        state.myReservations = [];
+        renderMyReservations([]);
+        showToast('โหลดรายการจองไม่สำเร็จ', err.message || 'เกิดข้อผิดพลาด', 'error');
+      }
+    }
     function renderMyReservations(rows){
       const list=el('bookingMineList');
       if(!rows.length){
