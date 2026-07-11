@@ -878,7 +878,43 @@ function restoreSession(){
 
       return map;
     }
-    async function loadRetestRows(){try{const yearText=safeText(el('retestYear').value,''); const termText=safeText(el('retestTerm').value,''); const studentCode=safeText(el('retestStudentCodeKeyword').value,''); if(!yearText && !termText && !studentCode){renderRetestRows([]); setStatus('retestStatus','กรุณาเลือกปีการศึกษา/ภาคเรียน หรือค้นหารหัสนักเรียน','warn'); return;} showLoading('กำลังโหลดผลการเรียน...'); setStatus('retestStatus','กำลังโหลดผลการเรียน...','info'); const base=await fetchRetestRowsBase(yearText?safeNum(yearText):null,termText?safeNum(termText):null,studentCode); const map=await fetchRetestRequests(base.map(r=>r.id).filter(Boolean)); state.retestRows=base.map(r=>{const req=map.get(String(r.id)); return {...r,grade_result_id:r.id,retest_request_id:req?.id||null,requested_retest_grade_code:req?.requested_retest_grade_code||'',retest_request_status:req?.status||''};}); state.retestEditingId=null; renderRetestRows(state.retestRows); setStatus('retestStatus',state.retestRows.length?`พบรายการผลการเรียน ${state.retestRows.length} รายการ`:'ไม่พบรายการตามเงื่อนไข',state.retestRows.length?'success':'warn');}catch(err){console.error(err); renderRetestRows([]); setStatus('retestStatus',err.message||'โหลดรายการไม่สำเร็จ','error'); showToast('โหลดรายการไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error');}finally{hideLoading();}}
+    state.retestRows = base.map(r => {
+  const req = map.get(String(r.id));
+
+  // เกรดแก้ตัวที่ถูกบันทึกลง grade_results
+  // ถือว่าเป็นเกรดที่งานทะเบียนอนุมัติเรียบร้อยแล้ว
+  const approvedRetestGrade = normalizeGradeValue(r.retest_grade_code);
+
+  // เกรดที่ครูส่งไปและยังอยู่ในตารางคำขอ
+  const requestedRetestGrade = normalizeGradeValue(
+    req?.requested_retest_grade_code
+  );
+
+  return {
+    ...r,
+
+    grade_result_id: r.id,
+    retest_request_id: req?.id || null,
+
+    // ถ้ามีเกรดที่อนุมัติแล้ว ให้ใช้เกรดนั้นแสดงก่อน
+    requested_retest_grade_code:
+      approvedRetestGrade ||
+      requestedRetestGrade ||
+      '',
+
+    // ถ้า grade_results มี retest_grade_code
+    // ให้ถือว่าสถานะอนุมัติแล้วทันที
+    retest_request_status:
+      approvedRetestGrade
+        ? 'approved'
+        : safeText(req?.status, ''),
+
+    // เก็บสถานะเสริมไว้ใช้ในจุดต่อไป
+    retest_grade_approved:
+      !!approvedRetestGrade
+  };
+});
+    state.retestEditingId=null; renderRetestRows(state.retestRows); setStatus('retestStatus',state.retestRows.length?`พบรายการผลการเรียน ${state.retestRows.length} รายการ`:'ไม่พบรายการตามเงื่อนไข',state.retestRows.length?'success':'warn');}catch(err){console.error(err); renderRetestRows([]); setStatus('retestStatus',err.message||'โหลดรายการไม่สำเร็จ','error'); showToast('โหลดรายการไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error');}finally{hideLoading();}}
     function renderRetestRows(rows){const list=el('retestList'); updateRetestSummary(rows); if(!rows.length){list.innerHTML='<div class="card empty">ไม่พบรายกาผลการเรียนตามเงื่อนไขที่เลือก</div>'; return;} list.innerHTML=rows.map(row=>{const key=getRetestRowKey(row); const editing=state.retestEditingId===key; const original=normalizeGradeValue(row.grade_code); const options=getRetestOptionsByOriginalGrade(original); const requested=normalizeGradeValue(row.requested_retest_grade_code); const status=row.retest_request_status; const canEdit=status!=='approved'; let body=''; if(editing){const selected=requested || (options.length===1?options[0]:''); body=`<select class="select" data-retest-select="${escapeHtml(key)}"><option value="">เลือกผลแก้ตัว</option>${options.map(o=>`<option value="${escapeHtml(o)}" ${selected===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select><div class="retest-actions"><button class="btn btn-success" data-retest-save="${escapeHtml(key)}">ส่งผล</button><button class="btn btn-secondary" data-retest-cancel="${escapeHtml(key)}">ยกเลิก</button></div>`;}else{body=`<div class="row-between"><div>${requested?gradePill(requested):'<span class="student-sub">ยังไม่เลือกผลแก้ตัว</span>'}</div>${retestStatusBadge(status)}</div>${canEdit?`<button class="btn btn-primary btn-block" style="margin-top:12px;" data-retest-edit="${escapeHtml(key)}">${status==='pending_approval'?'แก้ไขผล':'สอบแก้ตัว'}</button>`:''}`;} return `<div class="card"><div class="row-between"><div><div class="mono">${escapeHtml(row.student_code||'-')}</div><div class="student-main">${escapeHtml(row.student_name||'-')}</div><div class="student-sub">${escapeHtml(row.class_level||'-')}/${escapeHtml(row.room||'-')} • ปี ${escapeHtml(row.academic_year||'-')} เทอม ${escapeHtml(row.term||'-')}</div></div>${gradePill(original)}</div><div class="subject-box"><div class="mono">${escapeHtml(row.subject_code||'-')}</div><div class="subject-name">${escapeHtml(row.subject_name||'-')}</div></div><div style="margin-top:12px;">${body}</div></div>`;}).join(''); bindRetestButtons();}
     function bindRetestButtons(){document.querySelectorAll('[data-retest-edit]').forEach(b=>b.addEventListener('click',()=>{state.retestEditingId=String(b.dataset.retestEdit||''); renderRetestRows(state.retestRows);})); document.querySelectorAll('[data-retest-cancel]').forEach(b=>b.addEventListener('click',()=>{state.retestEditingId=null; renderRetestRows(state.retestRows);})); document.querySelectorAll('[data-retest-save]').forEach(b=>b.addEventListener('click',()=>saveRetestRequest(String(b.dataset.retestSave||''))));}
     function findRetestRow(key){return state.retestRows.find(r=>getRetestRowKey(r)===String(key));}
