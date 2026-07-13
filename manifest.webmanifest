@@ -1,9 +1,10 @@
 {
+  "id": "./",
   "name": "TeacherPR - ศูนย์รวมงานวิชาการสำหรับครู",
   "short_name": "TeacherPR",
   "description": "ส่งผลสอบแก้ตัวและดูเกรดนักเรียนในที่ปรึกษา",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f4f7fb",
