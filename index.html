@@ -1415,9 +1415,7 @@ async function loadRetestRows({ resetFilter = true } = {}){
       const cancelSubmissionOption =
         status === 'pending_approval'
           ? `
-            <option disabled>
-              ───────
-            </option>
+
 
             <option value="__cancel_submission__">
               ยกเลิกการส่ง
