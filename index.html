@@ -1292,59 +1292,658 @@ async function loadRetestRows({ resetFilter = true } = {}){
     hideLoading();
   }
 }
-    function renderRetestRows(rows){const list=el('retestList');if(!rows.length){list.innerHTML='<div class="card empty">ไม่พบรายกาผลการเรียนตามเงื่อนไขที่เลือก</div>'; return;} list.innerHTML=rows.map(row=>{const key=getRetestRowKey(row); const editing=state.retestEditingId===key; const original=normalizeGradeValue(row.grade_code); const options=getRetestOptionsByOriginalGrade(original); const requested=normalizeGradeValue(row.requested_retest_grade_code); const status=row.retest_request_status; const canEdit=status!=='approved'; let body=''; if(editing){const selected=requested || (options.length===1?options[0]:''); body=`<select class="select" data-retest-select="${escapeHtml(key)}"><option value="">เลือกผลแก้ตัว</option>${options.map(o=>`<option value="${escapeHtml(o)}" ${selected===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select><div class="retest-actions"><button class="btn btn-success" data-retest-save="${escapeHtml(key)}">ส่งผล</button><button class="btn btn-secondary" data-retest-cancel="${escapeHtml(key)}">ยกเลิก</button></div>`;}else{body=`<div class="row-between"><div>${requested?gradePill(requested):'<span class="student-sub">ยังไม่เลือกผลแก้ตัว</span>'}</div>${retestStatusBadge(status)}</div>${canEdit?`<button class="btn btn-primary btn-block" style="margin-top:12px;" data-retest-edit="${escapeHtml(key)}">${status==='pending_approval'?'แก้ไขผล':'สอบแก้ตัว'}</button>`:''}`;} return `<div class="card"><div class="row-between"><div><div class="mono">${escapeHtml(row.student_code||'-')}</div><div class="student-main">${escapeHtml(row.student_name||'-')}</div><div class="student-sub">${escapeHtml(row.class_level||'-')}/${escapeHtml(row.room||'-')} • ปี ${escapeHtml(row.academic_year||'-')} เทอม ${escapeHtml(row.term||'-')}</div></div>${gradePill(original)}</div><div class="subject-box"><div class="mono">${escapeHtml(row.subject_code||'-')}</div><div class="subject-name">${escapeHtml(row.subject_name||'-')}</div></div><div style="margin-top:12px;">${body}</div></div>`;}).join(''); bindRetestButtons();}
-    function bindRetestButtons(){
+    function renderRetestRows(rows){
+  const list = el('retestList');
 
+  if(!rows.length){
+    list.innerHTML = `
+      <div class="card empty">
+        ไม่พบรายการผลการเรียนตามเงื่อนไขที่เลือก
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = rows.map(row => {
+    const key = getRetestRowKey(row);
+
+    const editing =
+      state.retestEditingId === key;
+
+    const original =
+      normalizeGradeValue(row.grade_code);
+
+    const options =
+      getRetestOptionsByOriginalGrade(original);
+
+    const requested =
+      normalizeGradeValue(
+        row.requested_retest_grade_code
+      );
+
+    const status =
+      safeText(row.retest_request_status, '');
+
+    const canEdit =
+      status !== 'approved';
+
+    let body = '';
+
+    if(editing){
+      const selected =
+        requested ||
+        (options.length === 1 ? options[0] : '');
+
+      /*
+       * แสดง “ยกเลิกการส่ง”
+       * เฉพาะรายการที่รออนุมัติ
+       */
+      const cancelSubmissionOption =
+        status === 'pending_approval'
+          ? `
+            <option disabled>
+              ────────────
+            </option>
+
+            <option value="__cancel_submission__">
+              ยกเลิกการส่ง
+            </option>
+          `
+          : '';
+
+      body = `
+        <select
+          class="select"
+          data-retest-select="${escapeHtml(key)}"
+          data-retest-status="${escapeHtml(status)}"
+        >
+          <option value="">
+            เลือกผลแก้ตัว
+          </option>
+
+          ${options.map(option => `
+            <option
+              value="${escapeHtml(option)}"
+              ${selected === option ? 'selected' : ''}
+            >
+              ${escapeHtml(option)}
+            </option>
+          `).join('')}
+
+          ${cancelSubmissionOption}
+        </select>
+
+        <div class="retest-actions">
+          <button
+            class="btn btn-success"
+            type="button"
+            data-retest-save="${escapeHtml(key)}"
+            data-retest-action-button="${escapeHtml(key)}"
+          >
+            ส่งผล
+          </button>
+
+          <button
+            class="btn btn-secondary"
+            type="button"
+            data-retest-cancel="${escapeHtml(key)}"
+          >
+            ยกเลิก
+          </button>
+        </div>
+      `;
+
+    }else{
+      body = `
+        <div class="row-between">
+          <div>
+            ${
+              requested
+                ? gradePill(requested)
+                : `
+                  <span class="student-sub">
+                    ยังไม่เลือกผลแก้ตัว
+                  </span>
+                `
+            }
+          </div>
+
+          ${retestStatusBadge(status)}
+        </div>
+
+        ${
+          canEdit
+            ? `
+              <button
+                class="btn btn-primary btn-block"
+                type="button"
+                style="margin-top:12px;"
+                data-retest-edit="${escapeHtml(key)}"
+              >
+                ${
+                  status === 'pending_approval'
+                    ? 'แก้ไขผล'
+                    : 'สอบแก้ตัว'
+                }
+              </button>
+            `
+            : ''
+        }
+      `;
+    }
+
+    return `
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <div class="mono">
+              ${escapeHtml(row.student_code || '-')}
+            </div>
+
+            <div class="student-main">
+              ${escapeHtml(row.student_name || '-')}
+            </div>
+
+            <div class="student-sub">
+              ${escapeHtml(row.class_level || '-')}/
+              ${escapeHtml(row.room || '-')}
+              • ปี ${escapeHtml(row.academic_year || '-')}
+              เทอม ${escapeHtml(row.term || '-')}
+            </div>
+          </div>
+
+          ${gradePill(original)}
+        </div>
+
+        <div class="subject-box">
+          <div class="mono">
+            ${escapeHtml(row.subject_code || '-')}
+          </div>
+
+          <div class="subject-name">
+            ${escapeHtml(row.subject_name || '-')}
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          ${body}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  bindRetestButtons();
+}
+
+function updateRetestActionButton(selectElement){
+  if(!selectElement) return;
+
+  const rowKey = safeText(
+    selectElement.dataset.retestSelect,
+    ''
+  );
+
+  if(!rowKey) return;
+
+  const actionButton = document.querySelector(
+    `[data-retest-action-button="${CSS.escape(rowKey)}"]`
+  );
+
+  if(!actionButton) return;
+
+  const selectedValue = safeText(
+    selectElement.value,
+    ''
+  );
+
+  const isCancelSubmission =
+    selectedValue === '__cancel_submission__';
+
+  if(isCancelSubmission){
+    actionButton.textContent =
+      'ยืนยันยกเลิกการส่ง';
+
+    actionButton.classList.remove(
+      'btn-success'
+    );
+
+    actionButton.classList.add(
+      'btn-danger'
+    );
+
+    actionButton.setAttribute(
+      'aria-label',
+      'ยืนยันยกเลิกการส่งผลสอบแก้ตัว'
+    );
+
+  }else{
+    actionButton.textContent =
+      'ส่งผล';
+
+    actionButton.classList.remove(
+      'btn-danger'
+    );
+
+    actionButton.classList.add(
+      'btn-success'
+    );
+
+    actionButton.setAttribute(
+      'aria-label',
+      'ส่งผลสอบแก้ตัว'
+    );
+  }
+}
+    
+function bindRetestButtons(){
+
+  /*
+   * Dropdown ผลแก้ตัว
+   */
+  document
+    .querySelectorAll('[data-retest-select]')
+    .forEach(selectElement => {
+
+      /*
+       * ตั้งค่าปุ่มทันทีหลัง render
+       */
+      updateRetestActionButton(
+        selectElement
+      );
+
+      /*
+       * เปลี่ยนข้อความและสีปุ่ม
+       * เมื่อครูเลือกตัวเลือกใหม่
+       */
+      selectElement.addEventListener(
+        'change',
+        () => {
+          updateRetestActionButton(
+            selectElement
+          );
+        }
+      );
+    });
+
+
+  /*
+   * ปุ่มแก้ไขผล / สอบแก้ตัว
+   */
   document
     .querySelectorAll('[data-retest-edit]')
     .forEach(button => {
 
-      button.addEventListener('click', () => {
+      button.addEventListener(
+        'click',
+        () => {
 
-        state.retestEditingId = String(
-          button.dataset.retestEdit || ''
-        );
+          state.retestEditingId = String(
+            button.dataset.retestEdit || ''
+          );
 
-        // แสดงรายการตามตัวกรองเดิม
-        applyRetestFilter(false);
-      });
-
+          /*
+           * แสดงรายการตามตัวกรองเดิม
+           */
+          applyRetestFilter(false);
+        }
+      );
     });
 
 
+  /*
+   * ปุ่มยกเลิกการแก้ไข
+   */
   document
     .querySelectorAll('[data-retest-cancel]')
     .forEach(button => {
 
-      button.addEventListener('click', () => {
+      button.addEventListener(
+        'click',
+        () => {
 
-        state.retestEditingId = null;
+          state.retestEditingId = null;
 
-        // ยกเลิกการแก้ไข แต่ยังอยู่ในตัวกรองเดิม
-        applyRetestFilter(false);
-      });
-
+          /*
+           * ยังคงอยู่ในตัวกรองเดิม
+           */
+          applyRetestFilter(false);
+        }
+      );
     });
 
 
+  /*
+   * ปุ่มส่งผลหรือยืนยันยกเลิกการส่ง
+   */
   document
     .querySelectorAll('[data-retest-save]')
     .forEach(button => {
 
-      button.addEventListener('click', () => {
+      button.addEventListener(
+        'click',
+        async () => {
 
-        saveRetestRequest(
-          String(button.dataset.retestSave || '')
-        );
+          const rowKey = String(
+            button.dataset.retestSave || ''
+          );
 
-      });
+          /*
+           * ป้องกันกดซ้ำบนมือถือ
+           */
+          if(button.disabled){
+            return;
+          }
 
+          button.disabled = true;
+
+          try{
+            await saveRetestRequest(
+              rowKey
+            );
+          }finally{
+            /*
+             * หากตารางยังไม่ได้ render ใหม่
+             * ให้คืนสถานะปุ่ม
+             */
+            if(document.body.contains(button)){
+              button.disabled = false;
+            }
+          }
+        }
+      );
     });
 }
     function findRetestRow(key){return state.retestRows.find(r=>getRetestRowKey(r)===String(key));}
-    async function saveRetestRequest(key){try{const row=findRetestRow(key); if(!row)throw new Error('ไม่พบรายการที่ต้องการส่งผล'); if(row.retest_request_status==='approved')throw new Error('รายการนี้อนุมัติแล้ว ไม่สามารถแก้ไขได้'); const selected=normalizeGradeValue(document.querySelector(`[data-retest-select="${CSS.escape(key)}"]`)?.value||''); if(!selected)throw new Error('กรุณาเลือกผลการเรียนแก้ตัว'); if(!getRetestOptionsByOriginalGrade(row.grade_code).includes(selected))throw new Error(`เกรดเดิม ${normalizeGradeValue(row.grade_code)} ไม่สามารถแก้เป็น ${selected}`); showLoading('กำลังส่งผลสอบแก้ตัว...'); const payload={grade_result_id:row.grade_result_id,student_id:row.student_id,student_code:safeText(row.student_code,''),student_name:safeText(row.student_name,''),subject_offering_id:row.subject_offering_id||null,subject_id:row.subject_id||null,subject_code:safeText(row.subject_code,''),subject_name:safeText(row.subject_name,''),teacher_id:row.teacher_id,teacher_code:state.currentUser.teacher_code,academic_year:safeNum(row.academic_year),term:safeNum(row.term),class_level:safeText(row.class_level,''),room:safeText(row.room,''),original_grade_code:normalizeGradeValue(row.grade_code),requested_retest_grade_code:selected,status:'pending_approval',submitted_at:new Date().toISOString(),updated_at:new Date().toISOString(),is_active:true}; let error=null; if(row.retest_request_id){({error}=await supabaseClient.from('grade_retest_requests').update({requested_retest_grade_code:selected,status:'pending_approval',updated_at:payload.updated_at,is_active:true,rejected_at:null,rejected_by:null,rejected_reason:null}).eq('id',row.retest_request_id).eq('is_active',true));}else{({error}=await supabaseClient.from('grade_retest_requests').insert(payload));} if(error)throw error; state.retestEditingId=null; showToast('ส่งผลสอบแก้ตัวแล้ว','สถานะรออนุมัติจากงานทะเบียน','success'); await loadRetestRows({
-  resetFilter:false
-});}catch(err){showToast('ส่งผลไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error'); setStatus('retestStatus',err.message||'ส่งผลไม่สำเร็จ','error');}finally{hideLoading();}}
+    async function cancelRetestSubmission(row){
+  if(!row?.retest_request_id){
+    throw new Error(
+      'ไม่พบรายการผลสอบแก้ตัวที่ต้องการยกเลิก'
+    );
+  }
+
+  if(row.retest_request_status !== 'pending_approval'){
+    throw new Error(
+      'ยกเลิกการส่งได้เฉพาะรายการที่กำลังรออนุมัติ'
+    );
+  }
+
+  const confirmed = window.confirm(
+    `ยืนยันยกเลิกการส่งผลสอบแก้ตัว\n\n` +
+    `นักเรียน: ${safeText(row.student_code, '-')} ` +
+    `${safeText(row.student_name, '-')}\n` +
+    `รายวิชา: ${safeText(row.subject_code, '-')} ` +
+    `${safeText(row.subject_name, '-')}\n` +
+    `ผลแก้ตัวที่ส่ง: ${safeText(
+      row.requested_retest_grade_code,
+      '-'
+    )}\n\n` +
+    `รายการจะกลับไปเป็นสถานะ “ยังไม่ส่งผล”`
+  );
+
+  if(!confirmed){
+    return false;
+  }
+
+  showLoading('กำลังยกเลิกการส่ง...');
+
+  setStatus(
+    'retestStatus',
+    'กำลังยกเลิกการส่งผลสอบแก้ตัว...',
+    'info'
+  );
+
+  const { data, error } = await supabaseClient
+    .from('grade_retest_requests')
+    .update({
+      is_active: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', row.retest_request_id)
+    .eq('teacher_id', state.currentUser.id)
+    .eq('status', 'pending_approval')
+    .eq('is_active', true)
+    .select('id')
+    .maybeSingle();
+
+  if(error){
+    throw error;
+  }
+
+  /*
+   * ป้องกันกรณีนายทะเบียนอนุมัติรายการ
+   * ในเวลาเดียวกับที่ครูกดยกเลิก
+   */
+  if(!data?.id){
+    throw new Error(
+      'ไม่สามารถยกเลิกการส่งได้ ' +
+      'รายการอาจได้รับการอนุมัติหรือมีการเปลี่ยนสถานะแล้ว'
+    );
+  }
+
+  state.retestEditingId = null;
+
+  showToast(
+    'ยกเลิกการส่งแล้ว',
+    'รายการกลับเป็นสถานะยังไม่ส่งผลเรียบร้อยแล้ว',
+    'success'
+  );
+
+  await loadRetestRows({
+    resetFilter: false
+  });
+
+  setStatus(
+    'retestStatus',
+    'ยกเลิกการส่งผลสอบแก้ตัวเรียบร้อยแล้ว',
+    'success'
+  );
+
+  return true;
+}
+async function saveRetestRequest(key){
+  try{
+    const row = findRetestRow(key);
+
+    if(!row){
+      throw new Error(
+        'ไม่พบรายการที่ต้องการส่งผล'
+      );
+    }
+
+    if(row.retest_request_status === 'approved'){
+      throw new Error(
+        'รายการนี้อนุมัติแล้ว ไม่สามารถแก้ไขได้'
+      );
+    }
+
+    const selectElement = document.querySelector(
+      `[data-retest-select="${CSS.escape(key)}"]`
+    );
+
+    /*
+     * ต้องอ่านค่าดิบก่อน
+     * เพราะ normalizeGradeValue() จะเปลี่ยนข้อความเป็นตัวพิมพ์ใหญ่
+     */
+    const selectedRaw = safeText(
+      selectElement?.value,
+      ''
+    );
+
+    if(!selectedRaw){
+      throw new Error(
+        'กรุณาเลือกผลการเรียนแก้ตัว'
+      );
+    }
+
+    /*
+     * แยกคำสั่งยกเลิกออกจากค่าเกรด
+     */
+    if(selectedRaw === '__cancel_submission__'){
+      await cancelRetestSubmission(row);
+      return;
+    }
+
+    const selected =
+      normalizeGradeValue(selectedRaw);
+
+    const allowedGrades =
+      getRetestOptionsByOriginalGrade(
+        row.grade_code
+      );
+
+    if(!allowedGrades.includes(selected)){
+      throw new Error(
+        `เกรดเดิม ${normalizeGradeValue(row.grade_code)} ` +
+        `ไม่สามารถแก้เป็น ${selected}`
+      );
+    }
+
+    showLoading('กำลังส่งผลสอบแก้ตัว...');
+
+    const now =
+      new Date().toISOString();
+
+    const payload = {
+      grade_result_id:
+        row.grade_result_id,
+
+      student_id:
+        row.student_id,
+
+      student_code:
+        safeText(row.student_code, ''),
+
+      student_name:
+        safeText(row.student_name, ''),
+
+      subject_offering_id:
+        row.subject_offering_id || null,
+
+      subject_id:
+        row.subject_id || null,
+
+      subject_code:
+        safeText(row.subject_code, ''),
+
+      subject_name:
+        safeText(row.subject_name, ''),
+
+      teacher_id:
+        row.teacher_id,
+
+      teacher_code:
+        state.currentUser.teacher_code,
+
+      academic_year:
+        safeNum(row.academic_year),
+
+      term:
+        safeNum(row.term),
+
+      class_level:
+        safeText(row.class_level, ''),
+
+      room:
+        safeText(row.room, ''),
+
+      original_grade_code:
+        normalizeGradeValue(row.grade_code),
+
+      requested_retest_grade_code:
+        selected,
+
+      status:
+        'pending_approval',
+
+      submitted_at:
+        now,
+
+      updated_at:
+        now,
+
+      is_active:
+        true
+    };
+
+    let error = null;
+
+    if(row.retest_request_id){
+      ({
+        error
+      } = await supabaseClient
+        .from('grade_retest_requests')
+        .update({
+          requested_retest_grade_code:
+            selected,
+
+          status:
+            'pending_approval',
+
+          submitted_at:
+            now,
+
+          updated_at:
+            now,
+
+          is_active:
+            true,
+
+          rejected_at:
+            null,
+
+          rejected_by:
+            null,
+
+          rejected_reason:
+            null
+        })
+        .eq('id', row.retest_request_id)
+        .eq('teacher_id', state.currentUser.id)
+        .eq('is_active', true));
+
+    }else{
+      ({
+        error
+      } = await supabaseClient
+        .from('grade_retest_requests')
+        .insert(payload));
+    }
+
+    if(error){
+      throw error;
+    }
+
+    state.retestEditingId = null;
+
+    showToast(
+      'ส่งผลสอบแก้ตัวแล้ว',
+      'สถานะรออนุมัติจากงานทะเบียน',
+      'success'
+    );
+
+    await loadRetestRows({
+      resetFilter: false
+    });
+
+  }catch(err){
+    console.error(err);
+
+    showToast(
+      'ดำเนินการไม่สำเร็จ',
+      err.message || 'เกิดข้อผิดพลาด',
+      'error'
+    );
+
+    setStatus(
+      'retestStatus',
+      err.message || 'ดำเนินการไม่สำเร็จ',
+      'error'
+    );
+
+  }finally{
+    hideLoading();
+  }
+}
 
     function getAdviserRoomKey(row){return [row.academic_year,row.term,row.class_level,row.room].map(x=>safeText(x,'')).join('|');}
     function getSelectedAdviserRoom(){return state.adviserRooms.find(r=>getAdviserRoomKey(r)===state.selectedAdviserRoomKey)||null;}
