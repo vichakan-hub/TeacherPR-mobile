@@ -166,7 +166,73 @@
 }
     .stat-value{font-size:20px;font-weight:800;color:#17324d}.stat-label{font-size:11px;font-weight:800;color:var(--muted);margin-top:1px;white-space:nowrap}
     .list{display:grid;gap:12px;margin-top:14px}.empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;line-height:1.7}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:800;color:#1d4ed8}.row-between{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.student-main{font-size:18px;font-weight:800;line-height:1.35;margin-top:3px}.student-sub{font-size:13px;color:var(--muted);font-weight:700;margin-top:2px}.badge{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid transparent;font-size:12px;font-weight:800;white-space:nowrap}.badge-none{background:#f1f5f9;color:#475569;border-color:#e2e8f0}.badge-pending{background:#fff7ea;color:#b26a00;border-color:#ffe0aa}.badge-approved,.badge-normal{background:#e9f8ef;color:#0f9d58;border-color:#bfe6cb}.badge-rejected,.badge-risk{background:#fff0ef;color:#d92d20;border-color:#ffd2cf}
-    .subject-box{margin-top:12px;background:#f8fbff;border:1px solid #edf2f7;border-radius:20px;padding:13px}.subject-name{font-size:16px;font-weight:800;line-height:1.45;margin-top:2px}.grade-pill{display:inline-flex;align-items:center;justify-content:center;min-width:54px;min-height:36px;border-radius:999px;padding:4px 12px;font-size:17px;font-weight:800;background:#fff1f1;color:#c81e1e;border:1px solid #f4b4b4}.grade-pill.pass{background:#e9f8ef;color:#0f9d58;border-color:#bfe6cb}.grade-pill.neutral{background:#f8fafc;color:#334155;border-color:#dbe7f3}.retest-actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}.term-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.term-btn{min-height:48px;border-radius:18px;padding:6px 10px;font-size:13px;font-weight:800;line-height:1.25;border:1px solid #bfe6cb;color:#0f9d58;background:#e9f8ef}.term-btn.risk{border-color:#ffd2cf;color:#d92d20;background:#fff0ef}
+    .subject-box{margin-top:12px;background:#f8fbff;border:1px solid #edf2f7;border-radius:20px;padding:13px}
+    /* ===== รูปแบบรายวิชาและเกรดแก้ตัว ===== */
+
+.retest-subject-box{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.retest-subject-info{
+  flex:1;
+  min-width:0;
+}
+
+.retest-subject-grade{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* ===== แถบสถานะผลสอบแก้ตัวเต็มความกว้าง ===== */
+
+.retest-status-bar{
+  width:100%;
+  min-height:42px;
+  margin-top:0;
+  padding:8px 14px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  font-size:14px;
+  font-weight:800;
+  border:1px solid transparent;
+}
+
+/* ยังไม่ส่งผล */
+.retest-status-bar.none{
+  background:#f1f5f9;
+  color:#475569;
+  border-color:#e2e8f0;
+}
+
+/* รออนุมัติ */
+.retest-status-bar.pending{
+  background:#fff7ea;
+  color:#b26a00;
+  border-color:#ffe0aa;
+}
+
+/* อนุมัติแล้ว */
+.retest-status-bar.approved{
+  background:#e9f8ef;
+  color:#0f9d58;
+  border-color:#bfe6cb;
+}
+
+/* ไม่อนุมัติ */
+.retest-status-bar.rejected{
+  background:#fff0ef;
+  color:#d92d20;
+  border-color:#ffd2cf;
+}
+    .subject-name{font-size:16px;font-weight:800;line-height:1.45;margin-top:2px}.grade-pill{display:inline-flex;align-items:center;justify-content:center;min-width:54px;min-height:36px;border-radius:999px;padding:4px 12px;font-size:17px;font-weight:800;background:#fff1f1;color:#c81e1e;border:1px solid #f4b4b4}.grade-pill.pass{background:#e9f8ef;color:#0f9d58;border-color:#bfe6cb}.grade-pill.neutral{background:#f8fafc;color:#334155;border-color:#dbe7f3}.retest-actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}.term-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.term-btn{min-height:48px;border-radius:18px;padding:6px 10px;font-size:13px;font-weight:800;line-height:1.25;border:1px solid #bfe6cb;color:#0f9d58;background:#e9f8ef}.term-btn.risk{border-color:#ffd2cf;color:#d92d20;background:#fff0ef}
     .bottom-nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:100%;max-width:430px;z-index:50;background:rgba(255,255,255,.92);border-top:1px solid rgba(216,228,239,.9);backdrop-filter:blur(16px);padding:8px 12px calc(10px + env(safe-area-inset-bottom))}.nav-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.nav-btn{height:56px;border-radius:20px;background:transparent;color:#64748b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:800}.nav-btn.active{background:var(--primary);color:#fff;box-shadow:0 10px 22px rgba(37,99,235,.22)}.nav-icon{font-size:20px}
     .detail-view{position:fixed;inset:0;z-index:80;background:var(--bg);display:none;overflow:auto}.detail-view.show{display:block}.detail-shell{width:100%;max-width:430px;min-height:100dvh;margin:0 auto;position:relative;background:var(--bg)}.detail-hero{position:absolute;inset:0 0 auto 0;height:240px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 58%,#22b8cf 100%);border-bottom-left-radius:34px;border-bottom-right-radius:34px}.detail-content{position:relative;z-index:1;padding:54px 16px 28px}.back-btn{height:44px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;padding:0 14px;display:inline-flex;align-items:center;gap:6px;font-weight:800;backdrop-filter:blur(12px)}.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.summary-mini{border-radius:18px;padding:12px 6px;text-align:center}.summary-blue{background:#eff6ff;color:#1d4ed8}.summary-gray{background:#f8fafc;color:#334155}.summary-green{background:#effcf3;color:#0f9d58}.summary-mini-label{font-size:11px;font-weight:800}.summary-mini-value{font-size:23px;font-weight:800;margin-top:2px}.grade-card{background:#fff;border:1px solid #edf2f7;border-radius:22px;padding:14px;box-shadow:0 8px 22px rgba(15,23,42,.06)}.grade-badge{min-width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;padding:0 10px}.grade-good{background:#e9f8ef;color:#0f9d58}.grade-bad{background:#fff0ef;color:#d92d20}
     .booking-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.booking-tab{min-height:46px;border-radius:16px;background:#eef3f8;color:#41536c;font-weight:800;font-size:14px}.booking-tab.active{background:var(--primary);color:#fff;box-shadow:0 10px 22px rgba(37,99,235,.22)}.booking-panel{margin-top:14px}.booking-free-card{border-radius:20px;padding:14px;border:1px solid #bfe6cb;background:#e9f8ef;box-shadow:0 6px 16px rgba(18,38,63,.06)}.booking-free-card.day-mon{background:#fff9e8;border-color:#f3df9b}.booking-free-card.day-tue{background:#fff0f5;border-color:#f2bfd1}.booking-free-card.day-wed{background:#edf9ef;border-color:#bfe6cb}.booking-free-card.day-thu{background:#fff3e8;border-color:#f3caa0}.booking-free-card.day-fri{background:#eef7ff;border-color:#bfdcff}.booking-free-top,.booking-mine-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.booking-free-code,.booking-mine-code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:900;color:#1d4ed8;font-size:17px}.booking-free-room{font-weight:900;color:#17324d;font-size:17px;margin-top:2px}.booking-free-period,.booking-mine-pill{background:#fff;border:1px solid rgba(15,23,42,.08);color:#0f5132;border-radius:999px;padding:6px 10px;font-weight:900;font-size:13px;white-space:nowrap}.booking-free-note{color:#5f7289;font-size:13px;line-height:1.45;margin:10px 0 12px}.booking-mine-card{background:#fff;border:1px solid #d8e4ef;border-radius:20px;padding:14px;box-shadow:0 6px 16px rgba(18,38,63,.06)}.booking-mine-date{font-size:17px;font-weight:900;color:#17324d}.booking-mine-detail{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}.booking-mine-detail-item{background:#f8fbff;border:1px solid #e1ebf5;border-radius:14px;padding:9px 10px}.booking-mine-label{font-size:11px;font-weight:800;color:#6b7a90;margin-bottom:2px}.booking-mine-value{font-weight:900;color:#17324d}
@@ -1465,45 +1531,38 @@ async function loadRetestRows({ resetFilter = true } = {}){
         </div>
       `;
 
-    }else{
-      body = `
-        <div class="row-between">
-          <div>
-            ${
-              requested
-                ? gradePill(requested)
-                : `
-                  <span class="student-sub">
-                    ยังไม่เลือกผลแก้ตัว
-                  </span>
-                `
-            }
-          </div>
-
-          ${retestStatusBadge(status)}
+  }else{
+body = `
+  ${
+    status
+      ? `
+        <div class="retest-status-bar ${escapeHtml(getRetestStatusClass(status))}">
+          ${escapeHtml(getRetestStatusText(status))}
         </div>
+      `
+      : ''
+  }
 
-        ${
-          canEdit
-            ? `
-              <button
-                class="btn btn-primary btn-block"
-                type="button"
-                style="margin-top:12px;"
-                data-retest-edit="${escapeHtml(key)}"
-              >
-                ${
-                  status === 'pending_approval'
-                    ? 'แก้ไขผล'
-                    : 'สอบแก้ตัว'
-                }
-              </button>
-            `
-            : ''
-        }
-      `;
+  ${
+    canEdit
+        ? `
+          <button
+            class="btn btn-primary btn-block"
+            type="button"
+            style="margin-top:12px;"
+            data-retest-edit="${escapeHtml(key)}"
+          >
+            ${
+              status === 'pending_approval'
+                ? 'แก้ไขผล'
+                : 'สอบแก้ตัว'
+            }
+          </button>
+        `
+        : ''
     }
-
+  `;
+}
     return `
       <div class="card">
         <div class="row-between">
@@ -1527,15 +1586,29 @@ async function loadRetestRows({ resetFilter = true } = {}){
           ${gradePill(original)}
         </div>
 
-        <div class="subject-box">
-          <div class="mono">
-            ${escapeHtml(row.subject_code || '-')}
-          </div>
+<div class="subject-box retest-subject-box">
 
-          <div class="subject-name">
-            ${escapeHtml(row.subject_name || '-')}
-          </div>
+  <div class="retest-subject-info">
+    <div class="mono">
+      ${escapeHtml(row.subject_code || '-')}
+    </div>
+
+    <div class="subject-name">
+      ${escapeHtml(row.subject_name || '-')}
+    </div>
+  </div>
+
+  ${
+    requested
+      ? `
+        <div class="retest-subject-grade">
+          ${gradePill(requested)}
         </div>
+      `
+      : ''
+  }
+
+</div>
 
         <div style="margin-top:12px;">
           ${body}
