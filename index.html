@@ -2933,37 +2933,111 @@ function bindRetestButtons(){
     });
 }
     function findRetestRow(key){return state.retestRows.find(r=>getRetestRowKey(r)===String(key));}
+
     async function cancelRetestSubmission(row){
+
+  /*
+   * =====================================================
+   * 1) ตรวจข้อมูล
+   * =====================================================
+   */
+
   if(!row?.retest_request_id){
+
     throw new Error(
       'ไม่พบรายการผลสอบแก้ตัวที่ต้องการยกเลิก'
     );
+
   }
 
-  if(row.retest_request_status !== 'pending_approval'){
+
+  if(
+    row.retest_request_status !==
+    'pending_approval'
+  ){
+
     throw new Error(
       'ยกเลิกการส่งได้เฉพาะรายการที่กำลังรออนุมัติ'
     );
+
   }
 
-  const confirmed = window.confirm(
-    `ยืนยันยกเลิกการส่งผลสอบแก้ตัว\n\n` +
-    `นักเรียน: ${safeText(row.student_code, '-')} ` +
-    `${safeText(row.student_name, '-')}\n` +
-    `รายวิชา: ${safeText(row.subject_code, '-')} ` +
-    `${safeText(row.subject_name, '-')}\n` +
-    `ผลแก้ตัวที่ส่ง: ${safeText(
-      row.requested_retest_grade_code,
-      '-'
-    )}\n\n` +
-    `รายการจะกลับไปเป็นสถานะ “ยังไม่ส่งผล”`
-  );
+
+  /*
+   * =====================================================
+   * 2) ตรวจ Session Token
+   * =====================================================
+   */
+
+  const token =
+    String(
+      state.teacherSessionToken || ''
+    ).trim();
+
+
+  if(!token){
+
+    throw new Error(
+      'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'
+    );
+
+  }
+
+
+  /*
+   * =====================================================
+   * 3) ยืนยันกับครู
+   * =====================================================
+   */
+
+  const confirmed =
+    window.confirm(
+
+      `ยืนยันยกเลิกการส่งผลสอบแก้ตัว\n\n` +
+
+      `นักเรียน: ${safeText(
+        row.student_code,
+        '-'
+      )} ${safeText(
+        row.student_name,
+        '-'
+      )}\n` +
+
+      `รายวิชา: ${safeText(
+        row.subject_code,
+        '-'
+      )} ${safeText(
+        row.subject_name,
+        '-'
+      )}\n` +
+
+      `ผลแก้ตัวที่ส่ง: ${safeText(
+        row.requested_retest_grade_code,
+        '-'
+      )}\n\n` +
+
+      `รายการจะกลับไปเป็นสถานะ “ยังไม่ส่งผล”`
+
+    );
+
 
   if(!confirmed){
+
     return false;
+
   }
 
-  showLoading('กำลังยกเลิกการส่ง...');
+
+  /*
+   * =====================================================
+   * 4) แสดง Loading
+   * =====================================================
+   */
+
+  showLoading(
+    'กำลังยกเลิกการส่ง...'
+  );
+
 
   setStatus(
     'retestStatus',
@@ -2971,35 +3045,75 @@ function bindRetestButtons(){
     'info'
   );
 
-  const { data, error } = await supabaseClient
-    .from('grade_retest_requests')
-    .update({
-      is_active: false,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', row.retest_request_id)
-    .eq('teacher_id', state.currentUser.id)
-    .eq('status', 'pending_approval')
-    .eq('is_active', true)
-    .select('id')
-    .maybeSingle();
-
-  if(error){
-    throw error;
-  }
 
   /*
-   * ป้องกันกรณีนายทะเบียนอนุมัติรายการ
-   * ในเวลาเดียวกับที่ครูกดยกเลิก
+   * =====================================================
+   * 5) เรียก Session-secured RPC
+   *
+   * Browser ส่งเพียง
+   * - token
+   * - request id
+   *
+   * Database ตรวจ teacher_id และ status เอง
+   * =====================================================
    */
-  if(!data?.id){
-    throw new Error(
-      'ไม่สามารถยกเลิกการส่งได้ ' +
-      'รายการอาจได้รับการอนุมัติหรือมีการเปลี่ยนสถานะแล้ว'
+
+  const { data, error } =
+    await supabaseClient.rpc(
+      'teacher_cancel_retest_request_session',
+      {
+
+        p_token:
+          token,
+
+        p_request_id:
+          row.retest_request_id
+
+      }
     );
+
+
+  if(error){
+
+    throw error;
+
   }
 
-  state.retestEditingId = null;
+
+  const result =
+    Array.isArray(data)
+      ? data[0]
+      : data;
+
+
+  if(
+    !result ||
+    result.ok !== true
+  ){
+
+    throw new Error(
+      result?.message ||
+      'ไม่สามารถยกเลิกการส่งได้'
+    );
+
+  }
+
+
+  /*
+   * =====================================================
+   * 6) Reset Editing
+   * =====================================================
+   */
+
+  state.retestEditingId =
+    null;
+
+
+  /*
+   * =====================================================
+   * 7) แจ้งผล
+   * =====================================================
+   */
 
   showToast(
     'ยกเลิกการส่งแล้ว',
@@ -3007,9 +3121,17 @@ function bindRetestButtons(){
     'success'
   );
 
+
+  /*
+   * =====================================================
+   * 8) โหลดข้อมูลใหม่
+   * =====================================================
+   */
+
   await loadRetestRows({
     resetFilter: false
   });
+
 
   setStatus(
     'retestStatus',
@@ -3017,7 +3139,9 @@ function bindRetestButtons(){
     'success'
   );
 
+
   return true;
+
 }
     
 async function saveRetestRequest(key){
