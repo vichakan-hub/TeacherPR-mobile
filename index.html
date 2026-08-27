@@ -879,9 +879,43 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const SCHOOL_LOGO_URL = 'assets/school-logo.png';
     const el = (id) => document.getElementById(id);
-    const TEACHER_SESSION_KEY = 'teacherMobileUser';
-    const TEACHER_REMEMBER_KEY = 'teacherMobileRemember';
-    const TEACHER_REMEMBER_CODE_KEY = 'teacherMobileRememberCode';
+/*
+ * =====================================================
+ * TeacherPR Mobile Session Storage
+ * =====================================================
+ */
+
+/*
+ * Key เก่า
+ * ใช้เพื่อล้าง user object รุ่นเดิมเท่านั้น
+ */
+const TEACHER_SESSION_KEY =
+  'teacherMobileUser';
+
+
+/*
+ * Opaque Session Token
+ */
+const TEACHER_TOKEN_SESSION_KEY =
+  'teacherMobileSessionToken';
+
+
+/*
+ * Session expires_at
+ */
+const TEACHER_EXPIRES_SESSION_KEY =
+  'teacherMobileSessionExpiresAt';
+
+
+/*
+ * Remember Me
+ */
+const TEACHER_REMEMBER_KEY =
+  'teacherMobileRemember';
+
+
+const TEACHER_REMEMBER_CODE_KEY =
+  'teacherMobileRememberCode';
 
 const state = {
   currentUser:null,
@@ -1180,28 +1214,190 @@ async function loginWithTeacherRpc(
 }
 
 function saveSession(){
-  if(!state.currentUser) return;
 
-  const remember = isRememberMeChecked();
-  const userJson = JSON.stringify(state.currentUser);
-  const teacherCode = safeText(state.currentUser.teacher_code, '');
+  /*
+   * =====================================================
+   * 1) ต้องมี opaque token จาก Database
+   * =====================================================
+   */
 
-  // เก็บ session ปัจจุบันเสมอ
-  sessionStorage.setItem(TEACHER_SESSION_KEY, userJson);
+  const token =
+    String(
+      state.teacherSessionToken || ''
+    ).trim();
+
+
+  if(!token){
+
+    console.warn(
+      'TEACHER MOBILE SAVE SESSION SKIPPED: missing token'
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * =====================================================
+   * 2) ข้อมูลประกอบ
+   * =====================================================
+   */
+
+  const expiresAt =
+    state.teacherSessionExpiresAt
+      ? String(
+          state.teacherSessionExpiresAt
+        )
+      : '';
+
+
+  const remember =
+    isRememberMeChecked();
+
+
+  const teacherCode =
+    safeText(
+      state.currentUser?.teacher_code,
+      ''
+    );
+
+
+  /*
+   * =====================================================
+   * 3) ลบ Session รุ่นเก่า
+   *
+   * ห้ามเก็บ currentUser JSON
+   * เป็นหลักฐานสิทธิ์ใน Browser อีกต่อไป
+   * =====================================================
+   */
+
+  sessionStorage.removeItem(
+    TEACHER_SESSION_KEY
+  );
+
+  localStorage.removeItem(
+    TEACHER_SESSION_KEY
+  );
+
+
+  /*
+   * =====================================================
+   * 4) Session ปัจจุบัน
+   *
+   * เก็บ Token ใน sessionStorage เสมอ
+   * =====================================================
+   */
+
+  sessionStorage.setItem(
+    TEACHER_TOKEN_SESSION_KEY,
+    token
+  );
+
+
+  if(expiresAt){
+
+    sessionStorage.setItem(
+      TEACHER_EXPIRES_SESSION_KEY,
+      expiresAt
+    );
+
+  }else{
+
+    sessionStorage.removeItem(
+      TEACHER_EXPIRES_SESSION_KEY
+    );
+
+  }
+
+
+  /*
+   * =====================================================
+   * 5) Remember Me
+   * =====================================================
+   */
 
   if(remember){
-    localStorage.setItem(TEACHER_SESSION_KEY, userJson);
-    localStorage.setItem(TEACHER_REMEMBER_KEY, '1');
-    localStorage.setItem(TEACHER_REMEMBER_CODE_KEY, teacherCode);
-  }else{
-    localStorage.removeItem(TEACHER_SESSION_KEY);
-    localStorage.removeItem(TEACHER_REMEMBER_KEY);
 
-    // ยังจำรหัสครูไว้ได้ เพื่อกรอกง่าย
-    if(teacherCode){
-      localStorage.setItem(TEACHER_REMEMBER_CODE_KEY, teacherCode);
+    /*
+     * จดจำ Session ข้ามการปิด Browser
+     */
+
+    localStorage.setItem(
+      TEACHER_TOKEN_SESSION_KEY,
+      token
+    );
+
+
+    if(expiresAt){
+
+      localStorage.setItem(
+        TEACHER_EXPIRES_SESSION_KEY,
+        expiresAt
+      );
+
+    }else{
+
+      localStorage.removeItem(
+        TEACHER_EXPIRES_SESSION_KEY
+      );
+
     }
+
+
+    localStorage.setItem(
+      TEACHER_REMEMBER_KEY,
+      '1'
+    );
+
+
+    if(teacherCode){
+
+      localStorage.setItem(
+        TEACHER_REMEMBER_CODE_KEY,
+        teacherCode
+      );
+
+    }
+
+
+  }else{
+
+    /*
+     * ไม่จดจำ Session ข้าม Browser
+     */
+
+    localStorage.removeItem(
+      TEACHER_TOKEN_SESSION_KEY
+    );
+
+    localStorage.removeItem(
+      TEACHER_EXPIRES_SESSION_KEY
+    );
+
+    localStorage.removeItem(
+      TEACHER_REMEMBER_KEY
+    );
+
+
+    /*
+     * ยังจำเฉพาะ "รหัสครู" ได้
+     * เพื่อช่วยกรอก Login
+     *
+     * รหัสครูไม่ใช่ credential
+     */
+
+    if(teacherCode){
+
+      localStorage.setItem(
+        TEACHER_REMEMBER_CODE_KEY,
+        teacherCode
+      );
+
+    }
+
   }
+
 }
 
 function restoreRememberedLoginForm(){
