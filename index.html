@@ -883,9 +883,13 @@
     const TEACHER_REMEMBER_KEY = 'teacherMobileRemember';
     const TEACHER_REMEMBER_CODE_KEY = 'teacherMobileRememberCode';
 
-    const state = {
-      currentUser:null,
-      retestSettings:null,
+const state = {
+  currentUser:null,
+
+  teacherSessionToken:null,
+  teacherSessionExpiresAt:null,
+
+  retestSettings:null,
       adviserSettings:null,
       freePeriodSettings:null,
       retestRows:[],
@@ -913,18 +917,218 @@
 
     function normalizeTeacherCode(raw){const s=String(raw||'').trim().toUpperCase(); if(!s)return ''; if(s.startsWith('T')||s.startsWith('G')) return s; if(/^\d+$/.test(s)) return `T${s}`; return s;}
     function isTeacherPageAllowed(code){return String(code||'').trim().toUpperCase().startsWith('T');}
-    async function loginWithTeacherRpc(teacherCodeRaw,passwordRaw){
-      const teacherCode=normalizeTeacherCode(teacherCodeRaw); const password=String(passwordRaw||'').trim();
-      if(!teacherCode) throw new Error('กรุณากรอกรหัสครู');
-      if(!isTeacherPageAllowed(teacherCode)) throw new Error('หน้านี้อนุญาตเฉพาะครูรหัส T เท่านั้น');
-      if(!password) throw new Error('กรุณากรอกรหัสผ่าน');
-      const {data,error}=await supabaseClient.rpc('login_teacher',{p_teacher_code:teacherCode,p_password:password});
-      if(error) throw error;
-      if(!data || data.ok!==true || !data.user) throw new Error(data?.message || 'รหัสผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-      const user=data.user || {}; const code=String(user.teacher_code||'').toUpperCase();
-      if(!isTeacherPageAllowed(code)) throw new Error('หน้านี้อนุญาตเฉพาะครูรหัส T เท่านั้น');
-      return {id:user.id||'',teacher_code:user.teacher_code||'',first_name:user.first_name||'',last_name:user.last_name||'',full_name:user.full_name || [user.first_name||'',user.last_name||''].join(' ').trim() || user.teacher_code,role_prefix:code.charAt(0),teacher_role:'teacher',is_active:user.is_active!==false};
+async function loginWithTeacherRpc(
+  teacherCodeRaw,
+  passwordRaw
+){
+
+  const teacherCode =
+    normalizeTeacherCode(
+      teacherCodeRaw
+    );
+
+  const password =
+    String(
+      passwordRaw || ''
+    );
+
+
+  if(!teacherCode){
+
+    throw new Error(
+      'กรุณากรอกรหัสครู'
+    );
+
+  }
+
+
+  if(
+    !isTeacherPageAllowed(
+      teacherCode
+    )
+  ){
+
+    throw new Error(
+      'หน้านี้อนุญาตเฉพาะครูรหัส T เท่านั้น'
+    );
+
+  }
+
+
+  if(!password){
+
+    throw new Error(
+      'กรุณากรอกรหัสผ่าน'
+    );
+
+  }
+
+
+  /*
+   * =====================================================
+   * Login ผ่าน DB-verifiable Session
+   * =====================================================
+   */
+
+  const { data, error } =
+    await supabaseClient.rpc(
+      'login_teacher_session',
+      {
+
+        p_teacher_code:
+          teacherCode,
+
+        p_password:
+          password
+
+      }
+    );
+
+
+  if(error){
+
+    throw error;
+
+  }
+
+
+  const result =
+    Array.isArray(data)
+      ? data[0]
+      : data;
+
+
+  if(
+    !result ||
+    result.ok !== true ||
+    !result.user ||
+    !result.session_token
+  ){
+
+    throw new Error(
+      result?.message ||
+      'รหัสผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'
+    );
+
+  }
+
+
+  const user =
+    result.user || {};
+
+
+  const code =
+    normalizeTeacherCode(
+      user.teacher_code || ''
+    );
+
+
+  /*
+   * =====================================================
+   * TeacherPR Mobile ใช้เฉพาะ T / teacher
+   * =====================================================
+   */
+
+  if(
+    !isTeacherPageAllowed(code) ||
+    (
+      user.account_type &&
+      String(
+        user.account_type
+      ) !== 'teacher'
+    )
+  ){
+
+    /*
+     * ถ้า login สำเร็จแต่ role ไม่ถูกต้อง
+     * revoke token ที่เพิ่งสร้างทันที
+     */
+
+    try{
+
+      await supabaseClient.rpc(
+        'logout_teacher_session',
+        {
+          p_token:
+            result.session_token
+        }
+      );
+
+    }catch(logoutError){
+
+      console.warn(
+        'TEACHER MOBILE INVALID ROLE LOGOUT ERROR',
+        logoutError
+      );
+
     }
+
+
+    throw new Error(
+      'บัญชีนี้ไม่มีสิทธิ์เข้าใช้งาน TeacherPR'
+    );
+
+  }
+
+
+  /*
+   * =====================================================
+   * คืนทั้ง user + opaque token
+   * =====================================================
+   */
+
+  return {
+
+    user: {
+
+      id:
+        user.id || '',
+
+      teacher_code:
+        code,
+
+      first_name:
+        user.first_name || '',
+
+      last_name:
+        user.last_name || '',
+
+      full_name:
+        user.full_name ||
+        [
+          user.first_name || '',
+          user.last_name || ''
+        ]
+          .join(' ')
+          .trim() ||
+        code,
+
+      account_type:
+        user.account_type ||
+        'teacher',
+
+      role_prefix:
+        'T',
+
+      teacher_role:
+        'teacher',
+
+      is_active:
+        true
+
+    },
+
+
+    sessionToken:
+      result.session_token,
+
+
+    expiresAt:
+      result.expires_at || null
+
+  };
+
+}
 
     function getCurrentAcademicYear(){return new Date().getFullYear()+543;}
     function getCurrentTerm(){const month=new Date().getMonth()+1; return month>=5 && month<=10 ? 1 : 2;}
@@ -1041,9 +1245,95 @@ function restoreSession(){
   }
 }
     function showApp(){el('loginView').classList.add('hidden'); el('appView').classList.remove('hidden'); el('bottomNav').classList.remove('hidden'); el('homeUserName').textContent=`คุณครู ${state.currentUser?.full_name || '-'}`;}
-    async function login(){try{setStatus('loginStatus','กำลังตรวจสอบสิทธิ์...','info'); showLoading('กำลังเข้าสู่ระบบ...'); 
-    const user=await loginWithTeacherRpc(el('loginTeacherCode').value,el('loginPassword').value); state.currentUser=user; saveSession(); showApp(); 
-    await loadMobileSettings();setActiveTab('home'); showToast('เข้าสู่ระบบสำเร็จ',`ยินดีต้อนรับ ${user.full_name}`,'success');}catch(err){setStatus('loginStatus',err.message||'เข้าสู่ระบบไม่สำเร็จ','error'); showToast('เข้าสู่ระบบไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error');}finally{hideLoading();}}
+
+async function login(){
+
+  try{
+
+    setStatus(
+      'loginStatus',
+      'กำลังตรวจสอบสิทธิ์...',
+      'info'
+    );
+
+
+    showLoading(
+      'กำลังเข้าสู่ระบบ...'
+    );
+
+
+    const result =
+      await loginWithTeacherRpc(
+        el('loginTeacherCode').value,
+        el('loginPassword').value
+      );
+
+
+    state.currentUser =
+      result.user;
+
+
+    state.teacherSessionToken =
+      result.sessionToken;
+
+
+    state.teacherSessionExpiresAt =
+      result.expiresAt;
+
+
+    /*
+     * B.2 จะเปลี่ยน saveSession()
+     * ให้เก็บเฉพาะ opaque token
+     */
+    saveSession();
+
+
+    showApp();
+
+
+    await loadMobileSettings();
+
+
+    setActiveTab(
+      'home'
+    );
+
+
+    showToast(
+      'เข้าสู่ระบบสำเร็จ',
+      `ยินดีต้อนรับ ${state.currentUser.full_name}`,
+      'success'
+    );
+
+
+  }catch(err){
+
+    setStatus(
+      'loginStatus',
+      err.message ||
+      'เข้าสู่ระบบไม่สำเร็จ',
+      'error'
+    );
+
+
+    showToast(
+      'เข้าสู่ระบบไม่สำเร็จ',
+      err.message ||
+      'เกิดข้อผิดพลาด',
+      'error'
+    );
+
+
+  }finally{
+
+    hideLoading();
+
+  }
+
+}
+
+
+    
     function logout(){
   state.currentUser = null;
   state.selectedMyReservationIds = new Set();
