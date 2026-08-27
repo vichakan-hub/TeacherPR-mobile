@@ -3019,180 +3019,229 @@ function bindRetestButtons(){
 
   return true;
 }
+    
 async function saveRetestRequest(key){
+
   try{
-    const row = findRetestRow(key);
+
+    /*
+     * =====================================================
+     * 1) หาแถว
+     * =====================================================
+     */
+
+    const row =
+      findRetestRow(key);
+
 
     if(!row){
+
       throw new Error(
         'ไม่พบรายการที่ต้องการส่งผล'
       );
+
     }
 
-    if(row.retest_request_status === 'approved'){
+
+    if(
+      row.retest_request_status ===
+      'approved'
+    ){
+
       throw new Error(
         'รายการนี้อนุมัติแล้ว ไม่สามารถแก้ไขได้'
       );
+
     }
 
-    const selectElement = document.querySelector(
-      `[data-retest-select="${CSS.escape(key)}"]`
-    );
 
     /*
-     * ต้องอ่านค่าดิบก่อน
-     * เพราะ normalizeGradeValue() จะเปลี่ยนข้อความเป็นตัวพิมพ์ใหญ่
+     * =====================================================
+     * 2) ตรวจ Session
+     * =====================================================
      */
-    const selectedRaw = safeText(
-      selectElement?.value,
-      ''
-    );
+
+    const token =
+      String(
+        state.teacherSessionToken || ''
+      ).trim();
+
+
+    if(!token){
+
+      throw new Error(
+        'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'
+      );
+
+    }
+
+
+    /*
+     * =====================================================
+     * 3) อ่านค่าจาก Select
+     * =====================================================
+     */
+
+    const selectElement =
+      document.querySelector(
+        `[data-retest-select="${CSS.escape(key)}"]`
+      );
+
+
+    const selectedRaw =
+      safeText(
+        selectElement?.value,
+        ''
+      );
+
 
     if(!selectedRaw){
+
       throw new Error(
         'กรุณาเลือกผลการเรียนแก้ตัว'
       );
+
     }
+
 
     /*
-     * แยกคำสั่งยกเลิกออกจากค่าเกรด
+     * =====================================================
+     * 4) คำสั่งยกเลิกการส่ง
+     *
+     * B.6 จะย้ายไป Secure RPC อีกตัว
+     * =====================================================
      */
-    if(selectedRaw === '__cancel_submission__'){
-      await cancelRetestSubmission(row);
+
+    if(
+      selectedRaw ===
+      '__cancel_submission__'
+    ){
+
+      await cancelRetestSubmission(
+        row
+      );
+
       return;
+
     }
 
-    const selected =
-      normalizeGradeValue(selectedRaw);
 
+    const selected =
+      normalizeGradeValue(
+        selectedRaw
+      );
+
+
+    /*
+     * Validation ฝั่ง UI
+     *
+     * DB จะตรวจซ้ำอีกชั้น
+     */
     const allowedGrades =
       getRetestOptionsByOriginalGrade(
         row.grade_code
       );
 
-    if(!allowedGrades.includes(selected)){
+
+    if(
+      !allowedGrades.includes(
+        selected
+      )
+    ){
+
       throw new Error(
         `เกรดเดิม ${normalizeGradeValue(row.grade_code)} ` +
         `ไม่สามารถแก้เป็น ${selected}`
       );
+
     }
 
-    showLoading('กำลังส่งผลสอบแก้ตัว...');
 
-    const now =
-      new Date().toISOString();
+    if(!row.grade_result_id){
 
-    const payload = {
-      grade_result_id:
-        row.grade_result_id,
+      throw new Error(
+        'ไม่พบ grade_result_id'
+      );
 
-      student_id:
-        row.student_id,
-
-      student_code:
-        safeText(row.student_code, ''),
-
-      student_name:
-        safeText(row.student_name, ''),
-
-      subject_offering_id:
-        row.subject_offering_id || null,
-
-      subject_id:
-        row.subject_id || null,
-
-      subject_code:
-        safeText(row.subject_code, ''),
-
-      subject_name:
-        safeText(row.subject_name, ''),
-
-      teacher_id:
-        row.teacher_id,
-
-      teacher_code:
-        state.currentUser.teacher_code,
-
-      academic_year:
-        safeNum(row.academic_year),
-
-      term:
-        safeNum(row.term),
-
-      class_level:
-        safeText(row.class_level, ''),
-
-      room:
-        safeText(row.room, ''),
-
-      original_grade_code:
-        normalizeGradeValue(row.grade_code),
-
-      requested_retest_grade_code:
-        selected,
-
-      status:
-        'pending_approval',
-
-      submitted_at:
-        now,
-
-      updated_at:
-        now,
-
-      is_active:
-        true
-    };
-
-    let error = null;
-
-    if(row.retest_request_id){
-      ({
-        error
-      } = await supabaseClient
-        .from('grade_retest_requests')
-        .update({
-          requested_retest_grade_code:
-            selected,
-
-          status:
-            'pending_approval',
-
-          submitted_at:
-            now,
-
-          updated_at:
-            now,
-
-          is_active:
-            true,
-
-          rejected_at:
-            null,
-
-          rejected_by:
-            null,
-
-          rejected_reason:
-            null
-        })
-        .eq('id', row.retest_request_id)
-        .eq('teacher_id', state.currentUser.id)
-        .eq('is_active', true));
-
-    }else{
-      ({
-        error
-      } = await supabaseClient
-        .from('grade_retest_requests')
-        .insert(payload));
     }
+
+
+    /*
+     * =====================================================
+     * 5) เรียก Session-secured RPC
+     *
+     * Browser ส่งเพียง:
+     * - token
+     * - grade_result_id
+     * - requested grade
+     * =====================================================
+     */
+
+    showLoading(
+      'กำลังส่งผลสอบแก้ตัว...'
+    );
+
+
+    setStatus(
+      'retestStatus',
+      'กำลังส่งผลสอบแก้ตัว...',
+      'info'
+    );
+
+
+    const { data, error } =
+      await supabaseClient.rpc(
+        'teacher_submit_retest_request_session',
+        {
+
+          p_token:
+            token,
+
+          p_grade_result_id:
+            row.grade_result_id,
+
+          p_requested_grade:
+            selected
+
+        }
+      );
+
 
     if(error){
+
       throw error;
+
     }
 
-    state.retestEditingId = null;
+
+    const result =
+      Array.isArray(data)
+        ? data[0]
+        : data;
+
+
+    if(
+      !result ||
+      result.ok !== true
+    ){
+
+      throw new Error(
+        result?.message ||
+        'ส่งผลสอบแก้ตัวไม่สำเร็จ'
+      );
+
+    }
+
+
+    /*
+     * =====================================================
+     * 6) สำเร็จ
+     * =====================================================
+     */
+
+    state.retestEditingId =
+      null;
+
 
     showToast(
       'ส่งผลสอบแก้ตัวแล้ว',
@@ -3200,28 +3249,54 @@ async function saveRetestRequest(key){
       'success'
     );
 
+
     await loadRetestRows({
       resetFilter: false
     });
 
-  }catch(err){
-    console.error(err);
-
-    showToast(
-      'ดำเนินการไม่สำเร็จ',
-      err.message || 'เกิดข้อผิดพลาด',
-      'error'
-    );
 
     setStatus(
       'retestStatus',
-      err.message || 'ดำเนินการไม่สำเร็จ',
+      'ส่งผลสอบแก้ตัวเรียบร้อยแล้ว สถานะ: รออนุมัติ',
+      'success'
+    );
+
+
+  }catch(err){
+
+    console.error(
+      'saveRetestRequest ERROR',
+      err
+    );
+
+
+    const msg =
+      err?.message ||
+      err?.details ||
+      err?.hint ||
+      'ส่งผลสอบแก้ตัวไม่สำเร็จ';
+
+
+    showToast(
+      'ดำเนินการไม่สำเร็จ',
+      msg,
       'error'
     );
 
+
+    setStatus(
+      'retestStatus',
+      msg,
+      'error'
+    );
+
+
   }finally{
+
     hideLoading();
+
   }
+
 }
 
     function getAdviserRoomKey(row){return [row.academic_year,row.term,row.class_level,row.room].map(x=>safeText(x,'')).join('|');}
