@@ -1960,24 +1960,242 @@ async function login(){
 
 
     
-    function logout(){
-  state.currentUser = null;
-  state.selectedMyReservationIds = new Set();
+async function logout(){
 
-  sessionStorage.removeItem(TEACHER_SESSION_KEY);
-  localStorage.removeItem(TEACHER_SESSION_KEY);
-  localStorage.removeItem(TEACHER_REMEMBER_KEY);
+  /*
+   * =====================================================
+   * 1) เก็บ Token ไว้ก่อนล้าง State
+   * =====================================================
+   */
 
-  el('appView').classList.add('hidden');
-  el('bottomNav').classList.add('hidden');
-  el('loginView').classList.remove('hidden');
-  el('loginPassword').value = '';
+  const token =
+    String(
+      state.teacherSessionToken ||
 
-  if(el('rememberMeCheck')){
-    el('rememberMeCheck').checked = false;
+      sessionStorage.getItem(
+        TEACHER_TOKEN_SESSION_KEY
+      ) ||
+
+      localStorage.getItem(
+        TEACHER_TOKEN_SESSION_KEY
+      ) ||
+
+      ''
+    ).trim();
+
+
+  /*
+   * =====================================================
+   * 2) เก็บรหัสครูไว้สำหรับกรอก Login ครั้งถัดไป
+   * =====================================================
+   */
+
+  const teacherCode =
+    safeText(
+      state.currentUser?.teacher_code ||
+      localStorage.getItem(
+        TEACHER_REMEMBER_CODE_KEY
+      ),
+      ''
+    );
+
+
+  /*
+   * =====================================================
+   * 3) Revoke Session ที่ Database
+   *
+   * ถ้า RPC มีปัญหา
+   * Browser ก็ยังต้อง Logout ต่อ
+   * =====================================================
+   */
+
+  if(token){
+
+    try{
+
+      const { data, error } =
+        await supabaseClient.rpc(
+          'logout_teacher_session',
+          {
+            p_token:
+              token
+          }
+        );
+
+
+      if(error){
+
+        throw error;
+
+      }
+
+
+      const result =
+        Array.isArray(data)
+          ? data[0]
+          : data;
+
+
+      if(
+        result &&
+        result.ok === false
+      ){
+
+        console.warn(
+          'TEACHER MOBILE LOGOUT RPC WARNING',
+          result.message || result
+        );
+
+      }
+
+    }catch(error){
+
+      console.warn(
+        'TEACHER MOBILE SESSION REVOKE ERROR',
+        error
+      );
+
+    }
+
   }
 
-  setStatus('loginStatus','ออกจากระบบแล้ว','info');
+
+  /*
+   * =====================================================
+   * 4) ล้าง State
+   * =====================================================
+   */
+
+  state.currentUser =
+    null;
+
+  state.teacherSessionToken =
+    null;
+
+  state.teacherSessionExpiresAt =
+    null;
+
+
+  state.selectedMyReservationIds =
+    new Set();
+
+
+  /*
+   * =====================================================
+   * 5) ล้าง Session รุ่นเก่า
+   * =====================================================
+   */
+
+  sessionStorage.removeItem(
+    TEACHER_SESSION_KEY
+  );
+
+  localStorage.removeItem(
+    TEACHER_SESSION_KEY
+  );
+
+
+  /*
+   * =====================================================
+   * 6) ล้าง opaque token + expires_at
+   * =====================================================
+   */
+
+  sessionStorage.removeItem(
+    TEACHER_TOKEN_SESSION_KEY
+  );
+
+  sessionStorage.removeItem(
+    TEACHER_EXPIRES_SESSION_KEY
+  );
+
+
+  localStorage.removeItem(
+    TEACHER_TOKEN_SESSION_KEY
+  );
+
+  localStorage.removeItem(
+    TEACHER_EXPIRES_SESSION_KEY
+  );
+
+
+  /*
+   * =====================================================
+   * 7) ปิด Remember Me
+   * =====================================================
+   */
+
+  localStorage.removeItem(
+    TEACHER_REMEMBER_KEY
+  );
+
+
+  /*
+   * =====================================================
+   * 8) แต่ยังเก็บ "รหัสครู"
+   *
+   * รหัสครูไม่ใช่ credential
+   * =====================================================
+   */
+
+  if(teacherCode){
+
+    localStorage.setItem(
+      TEACHER_REMEMBER_CODE_KEY,
+      teacherCode
+    );
+
+  }
+
+
+  /*
+   * =====================================================
+   * 9) Reset UI
+   * =====================================================
+   */
+
+  el('appView')
+    .classList.add('hidden');
+
+
+  el('bottomNav')
+    .classList.add('hidden');
+
+
+  el('loginView')
+    .classList.remove('hidden');
+
+
+  if(el('loginPassword')){
+
+    el('loginPassword').value =
+      '';
+
+  }
+
+
+  if(el('loginTeacherCode')){
+
+    el('loginTeacherCode').value =
+      teacherCode;
+
+  }
+
+
+  if(el('rememberMeCheck')){
+
+    el('rememberMeCheck').checked =
+      false;
+
+  }
+
+
+  setStatus(
+    'loginStatus',
+    'ออกจากระบบแล้ว',
+    'info'
+  );
+
 }
     function setActiveTab(tab){
       ['home','retest','adviser','booking'].forEach(name=>{el(`${name}View`).classList.toggle('hidden',name!==tab); const nav=el(`nav${name.charAt(0).toUpperCase()+name.slice(1)}Btn`); if(nav) nav.classList.toggle('active',name===tab);});
