@@ -3144,24 +3144,24 @@ function bindRetestButtons(){
 
 }
     
-async function saveRetestRequest(key){
+async function saveRetestRequest(rowKey){
 
   try{
 
     /*
      * =====================================================
-     * 1) หาแถว
+     * 1) หารายการ
      * =====================================================
      */
 
     const row =
-      findRetestRow(key);
+      findRetestRowByKey(rowKey);
 
 
     if(!row){
 
       throw new Error(
-        'ไม่พบรายการที่ต้องการส่งผล'
+        'ไม่พบรายการที่ต้องการส่งผลสอบแก้ตัว'
       );
 
     }
@@ -3181,7 +3181,7 @@ async function saveRetestRequest(key){
 
     /*
      * =====================================================
-     * 2) ตรวจ Session
+     * 2) ตรวจ Session Token
      * =====================================================
      */
 
@@ -3202,27 +3202,31 @@ async function saveRetestRequest(key){
 
     /*
      * =====================================================
-     * 3) อ่านค่าจาก Select
+     * 3) อ่านค่าจาก Dropdown แบบ RAW ก่อน
+     *
+     * เพื่อแยกคำสั่ง __cancel_submission__
+     * ออกจากค่าเกรด
      * =====================================================
      */
 
-    const selectElement =
+    const select =
       document.querySelector(
-        `[data-retest-select="${CSS.escape(key)}"]`
+        `[data-retest-select="${CSS.escape(
+          String(rowKey)
+        )}"]`
       );
 
 
     const selectedRaw =
-      safeText(
-        selectElement?.value,
-        ''
-      );
+      String(
+        select?.value || ''
+      ).trim();
 
 
     if(!selectedRaw){
 
       throw new Error(
-        'กรุณาเลือกผลการเรียนแก้ตัว'
+        'กรุณาเลือกผลการเรียนแก้ตัวก่อนกดส่งผล'
       );
 
     }
@@ -3230,9 +3234,10 @@ async function saveRetestRequest(key){
 
     /*
      * =====================================================
-     * 4) คำสั่งยกเลิกการส่ง
+     * 4) ยกเลิกการส่ง
      *
-     * B.6 จะย้ายไป Secure RPC อีกตัว
+     * C.2 จะย้าย cancelRetestSubmission()
+     * ไป Secure RPC
      * =====================================================
      */
 
@@ -3250,41 +3255,48 @@ async function saveRetestRequest(key){
     }
 
 
-    const selected =
+    /*
+     * =====================================================
+     * 5) Normalize เกรด
+     * =====================================================
+     */
+
+    const selectedGrade =
       normalizeGradeValue(
         selectedRaw
       );
 
 
-    /*
-     * Validation ฝั่ง UI
-     *
-     * DB จะตรวจซ้ำอีกชั้น
-     */
-    const allowedGrades =
-      getRetestOptionsByOriginalGrade(
+    const originalGrade =
+      normalizeGradeValue(
         row.grade_code
       );
-
-
-    if(
-      !allowedGrades.includes(
-        selected
-      )
-    ){
-
-      throw new Error(
-        `เกรดเดิม ${normalizeGradeValue(row.grade_code)} ` +
-        `ไม่สามารถแก้เป็น ${selected}`
-      );
-
-    }
 
 
     if(!row.grade_result_id){
 
       throw new Error(
-        'ไม่พบ grade_result_id'
+        'ไม่พบ grade_result_id ของรายการนี้'
+      );
+
+    }
+
+
+    /*
+     * Validation ฝั่งหน้าเว็บ
+     *
+     * Database จะตรวจซ้ำอีกครั้ง
+     */
+    if(
+      !isValidRetestGradeByOriginalGrade(
+        originalGrade,
+        selectedGrade
+      )
+    ){
+
+      throw new Error(
+        `ผลแก้ตัวไม่ถูกต้อง: เกรดเดิม ${originalGrade} ` +
+        `ไม่สามารถแก้เป็น ${selectedGrade}`
       );
 
     }
@@ -3292,19 +3304,14 @@ async function saveRetestRequest(key){
 
     /*
      * =====================================================
-     * 5) เรียก Session-secured RPC
+     * 6) เรียก Secure RPC
      *
      * Browser ส่งเพียง:
-     * - token
+     * - opaque token
      * - grade_result_id
-     * - requested grade
+     * - ผลแก้ตัว
      * =====================================================
      */
-
-    showLoading(
-      'กำลังส่งผลสอบแก้ตัว...'
-    );
-
 
     setStatus(
       'retestStatus',
@@ -3325,7 +3332,7 @@ async function saveRetestRequest(key){
             row.grade_result_id,
 
           p_requested_grade:
-            selected
+            selectedGrade
 
         }
       );
@@ -3359,7 +3366,7 @@ async function saveRetestRequest(key){
 
     /*
      * =====================================================
-     * 6) สำเร็จ
+     * 7) สำเร็จ
      * =====================================================
      */
 
@@ -3369,14 +3376,12 @@ async function saveRetestRequest(key){
 
     showToast(
       'ส่งผลสอบแก้ตัวแล้ว',
-      'สถานะรออนุมัติจากงานทะเบียน',
+      'บันทึกผลสอบแก้ตัวเป็นสถานะรออนุมัติเรียบร้อยแล้ว',
       'success'
     );
 
 
-    await loadRetestRows({
-      resetFilter: false
-    });
+    await loadRetestRows();
 
 
     setStatus(
@@ -3401,13 +3406,6 @@ async function saveRetestRequest(key){
       'ส่งผลสอบแก้ตัวไม่สำเร็จ';
 
 
-    showToast(
-      'ดำเนินการไม่สำเร็จ',
-      msg,
-      'error'
-    );
-
-
     setStatus(
       'retestStatus',
       msg,
@@ -3415,9 +3413,11 @@ async function saveRetestRequest(key){
     );
 
 
-  }finally{
-
-    hideLoading();
+    showToast(
+      'ส่งผลไม่สำเร็จ',
+      msg,
+      'error'
+    );
 
   }
 
