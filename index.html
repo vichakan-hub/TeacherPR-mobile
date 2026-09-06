@@ -3858,93 +3858,269 @@ function compareGradeSubjectRows(a, b){
 
   return codeA.localeCompare(codeB, 'th', { numeric:true });
 }
-   async function fetchStudentGrades(studentId,year,term){
-  let q = supabaseClient
-    .from('grade_results')
-    .select(`
-      id,
-      student_id,
-      student_code,
-      student_name,
-      student_no,
-      academic_year,
-      term,
-      class_level,
-      room,
-      study_unit_score,
-      midterm_score,
-      final_score,
-      total_score,
-      grade_code,
-      retest_grade_code,
-      grading_status,
-      subject_code,
-      subject_name,
-      is_active,
-      subjects:subjects!fk_grade_results_subject(
-        credit,
-        learning_area,
-        subject_type
-      ),
-      teachers:teachers!fk_grade_results_teacher(
-        teacher_code,
-        full_name
-      )
-    `)
-    .eq('student_id', studentId)
-    .eq('is_active', true);
 
-  if(year != null) q = q.eq('academic_year', year);
-  if(term != null) q = q.eq('term', term);
+async function fetchStudentGrades(
+  studentId,
+  year,
+  term
+){
+  const token =
+    String(
+      state.teacherSessionToken || ''
+    ).trim();
 
-  const { data, error } = await q;
-
-  if(error){
-    let q2 = supabaseClient
-      .from('grade_results')
-      .select(`
-        id,
-        student_id,
-        student_code,
-        student_name,
-        student_no,
-        academic_year,
-        term,
-        class_level,
-        room,
-        study_unit_score,
-        midterm_score,
-        final_score,
-        total_score,
-        grade_code,
-        retest_grade_code,
-        grading_status,
-        subject_code,
-        subject_name,
-        is_active
-      `)
-      .eq('student_id', studentId)
-      .eq('is_active', true);
-
-    if(year != null) q2 = q2.eq('academic_year', year);
-    if(term != null) q2 = q2.eq('term', term);
-
-    const r = await q2;
-    if(r.error) throw r.error;
-
-    return (r.data || []).sort(compareGradeSubjectRows);
+  if(!token){
+    throw new Error(
+      'ไม่พบ Teacher Session Token กรุณาเข้าสู่ระบบใหม่'
+    );
   }
 
-  return (data || [])
-    .map(r => ({
-      ...r,
-      credit: safeNum(r.subjects?.credit) || 0,
-      learning_area: safeText(r.subjects?.learning_area, ''),
-      subject_type: safeText(r.subjects?.subject_type, ''),
-      teacher_name: safeText(r.teachers?.full_name, '')
+
+  const selectedRoom =
+    getSelectedAdviserRoom();
+
+  if(!selectedRoom){
+    throw new Error(
+      'ไม่พบข้อมูลห้องที่ปรึกษาที่เลือก'
+    );
+  }
+
+
+  const adviserAcademicYear =
+    Number(
+      selectedRoom.academic_year
+    );
+
+  const adviserTerm =
+    Number(
+      selectedRoom.term
+    );
+
+  const adviserClassLevel =
+    safeText(
+      selectedRoom.class_level,
+      ''
+    ).trim();
+
+  const adviserRoom =
+    safeText(
+      selectedRoom.room,
+      ''
+    ).trim();
+
+
+  if(
+    !Number.isFinite(adviserAcademicYear) ||
+    !Number.isFinite(adviserTerm) ||
+    !adviserClassLevel ||
+    !adviserRoom
+  ){
+    throw new Error(
+      'ข้อมูลห้องที่ปรึกษาไม่ครบ'
+    );
+  }
+
+
+  /*
+   * Secure Adviser Student Reader
+   *
+   * DB ตรวจว่า:
+   * - Teacher Session ถูกต้อง
+   * - ครูเป็นที่ปรึกษาห้องนี้จริง
+   * - นักเรียนอยู่ใน cohort ของห้องจริง
+   *
+   * จากนั้นจึงคืนผลการเรียนย้อนหลังของนักเรียน
+   */
+  const rows =
+    await fetchAllPages(
+      () =>
+        supabaseClient
+          .rpc(
+            'teacher_get_adviser_student_grade_rows_session',
+            {
+              p_token:
+                token,
+
+              p_student_id:
+                studentId,
+
+              p_adviser_academic_year:
+                adviserAcademicYear,
+
+              p_adviser_term:
+                adviserTerm,
+
+              p_class_level:
+                adviserClassLevel,
+
+              p_room:
+                adviserRoom
+            }
+          )
+          .order(
+            'academic_year',
+            { ascending:true }
+          )
+          .order(
+            'term',
+            { ascending:true }
+          )
+          .order(
+            'subject_code',
+            { ascending:true }
+          )
+          .order(
+            'id',
+            { ascending:true }
+          ),
+      1000
+    );
+
+
+  /*
+   * RPC คืนประวัติทั้งหมด
+   * แต่หน้า Mobile เดิมต้องการเฉพาะปี/เทอม
+   * ที่ผู้ใช้กดเข้ามา
+   */
+  const filtered =
+    (rows || []).filter(row => {
+
+      if(
+        year !== null &&
+        year !== undefined &&
+        Number(row.academic_year) !==
+          Number(year)
+      ){
+        return false;
+      }
+
+
+      if(
+        term !== null &&
+        term !== undefined &&
+        Number(row.term) !==
+          Number(term)
+      ){
+        return false;
+      }
+
+
+      return true;
+
+    });
+
+
+  /*
+   * Normalize ให้ shape เหมือน Function เดิม
+   */
+  return filtered
+    .map(row => ({
+
+      id:
+        row.id,
+
+      student_id:
+        row.student_id,
+
+      student_code:
+        safeText(
+          row.student_code,
+          ''
+        ),
+
+      student_name:
+        safeText(
+          row.student_name,
+          ''
+        ),
+
+      student_no:
+        row.student_no,
+
+      academic_year:
+        row.academic_year,
+
+      term:
+        row.term,
+
+      class_level:
+        safeText(
+          row.class_level,
+          ''
+        ),
+
+      room:
+        safeText(
+          row.room,
+          ''
+        ),
+
+      study_unit_score:
+        row.study_unit_score,
+
+      midterm_score:
+        row.midterm_score,
+
+      final_score:
+        row.final_score,
+
+      total_score:
+        row.total_score,
+
+      grade_code:
+        normalizeGradeValue(
+          row.grade_code
+        ),
+
+      retest_grade_code:
+        normalizeGradeValue(
+          row.retest_grade_code
+        ),
+
+      grading_status:
+        row.grading_status,
+
+      subject_code:
+        safeText(
+          row.subject_code,
+          ''
+        ),
+
+      subject_name:
+        safeText(
+          row.subject_name,
+          ''
+        ),
+
+      credit:
+        safeNum(
+          row.credit
+        ) || 0,
+
+      learning_area:
+        safeText(
+          row.learning_area,
+          ''
+        ),
+
+      subject_type:
+        safeText(
+          row.subject_type,
+          ''
+        ),
+
+      teacher_name:
+        safeText(
+          row.teacher_name,
+          ''
+        )
+
     }))
-    .sort(compareGradeSubjectRows);
+    .sort(
+      compareGradeSubjectRows
+    );
 }
+    
     function getNumericGradeForGpa(grade){const g=normalizeGradeValue(grade); const map={'4':4,'3.5':3.5,'3':3,'2.5':2.5,'2':2,'1.5':1.5,'1':1,'0':0}; return Object.prototype.hasOwnProperty.call(map,g)?map[g]:null;}
     function buildGradeSummary(rows){let total=0,earned=0,point=0,gpaCredit=0; rows.forEach(r=>{const credit=safeNum(r.credit)||0; const eff=normalizeGradeValue(r.retest_grade_code||r.grade_code); if(credit){total+=credit; if(isPassingGrade(eff))earned+=credit; const ng=getNumericGradeForGpa(eff); if(ng!==null){point+=ng*credit; gpaCredit+=credit;}}}); return {total,earned,gpa:gpaCredit?point/gpaCredit:0};}
     async function openStudentDetail(student,ctx){try{el('gradeDetailView').classList.add('show'); el('detailStudentName').textContent=safeText(student.raw_full_name,'-'); el('detailStudentMeta').textContent=`${safeText(student.sid,'-')} • ${safeText(ctx.label,'')}`; el('gradeDetailList').innerHTML='<div class="card empty">กำลังโหลดผลการเรียน...</div>'; const rows=await fetchStudentGrades(student.id,ctx.academic_year,ctx.term); const summary=buildGradeSummary(rows); el('detailTotalCredit').textContent=summary.total.toFixed(1); el('detailEarnedCredit').textContent=summary.earned.toFixed(1); el('detailGpa').textContent=summary.gpa.toFixed(2); renderGradeDetailRows(rows);}catch(err){el('gradeDetailList').innerHTML=`<div class="card empty">${escapeHtml(err.message||'โหลดผลการเรียนไม่สำเร็จ')}</div>`;}}
