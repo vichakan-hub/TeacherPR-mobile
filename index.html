@@ -3512,13 +3512,261 @@ async function saveRetestRequest(key){
     function renderAdviserRoomOptions(rows){const s=el('adviserRoomSelect'); s.innerHTML='<option value="">โปรดเลือกห้อง</option>'+(rows||[]).map(r=>{const key=getAdviserRoomKey(r); const label=`${safeText(r.class_level,'-')}/${safeText(r.room,'-')}${r.adviser_role?` (${r.adviser_role})`:''}`; return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;}).join(''); if(rows.length===1){state.selectedAdviserRoomKey=getAdviserRoomKey(rows[0]); s.value=state.selectedAdviserRoomKey;}else{state.selectedAdviserRoomKey='';}}
     function compareStudentNo(a,b){const aa=safeNum(a),bb=safeNum(b); if(aa===null&&bb===null)return 0; if(aa===null)return 1; if(bb===null)return -1; return aa-bb;}
     async function fetchAllPages(buildQuery,pageSize=1000){let from=0,rows=[]; while(true){const {data,error}=await buildQuery().range(from,from+pageSize-1); if(error)throw error; const batch=data||[]; rows=rows.concat(batch); if(batch.length<pageSize)break; from+=pageSize;} return rows;}
-    async function fetchStudentGradeFlags(studentIds){const ids=[...new Set((studentIds||[]).filter(Boolean).map(String))]; const map=new Map(); if(!ids.length)return map; for(let i=0;i<ids.length;i+=80){const chunk=ids.slice(i,i+80); const rows=await fetchAllPages(()=>supabaseClient.from('grade_results').select('student_id,academic_year,term,grade_code,retest_grade_code').in('student_id',chunk).eq('is_active',true).order('academic_year',{ascending:true}).order('term',{ascending:true})); rows.forEach(row=>{const sid=String(row.student_id); const key=`${row.academic_year}|${row.term}`; const eff=normalizeGradeValue(row.retest_grade_code||row.grade_code); if(!map.has(sid))map.set(sid,{has_grade_result:false,has_risk_grade:false,grade_count:0,term_flags:{}}); const item=map.get(sid); item.has_grade_result=true; item.grade_count+=1; if(!item.term_flags[key])item.term_flags[key]={has_grade_result:false,has_risk_grade:false,grade_count:0}; item.term_flags[key].has_grade_result=true; item.term_flags[key].grade_count+=1; if(isRiskGrade(eff)){item.has_risk_grade=true; item.term_flags[key].has_risk_grade=true;}});} return map;}
+
+async function fetchStudentGradeFlags(
+  studentIds,
+  selectedRoom
+){
+  const ids =
+    [
+      ...new Set(
+        (studentIds || [])
+          .filter(Boolean)
+          .map(String)
+      )
+    ];
+
+  const map =
+    new Map();
+
+
+  if(!ids.length){
+    return map;
+  }
+
+
+  const token =
+    String(
+      state.teacherSessionToken || ''
+    ).trim();
+
+  if(!token){
+    throw new Error(
+      'ไม่พบ Teacher Session Token กรุณาเข้าสู่ระบบใหม่'
+    );
+  }
+
+
+  if(!selectedRoom){
+    throw new Error(
+      'ไม่พบข้อมูลห้องที่ปรึกษาที่เลือก'
+    );
+  }
+
+
+  const academicYear =
+    Number(
+      selectedRoom.academic_year
+    );
+
+  const term =
+    Number(
+      selectedRoom.term
+    );
+
+  const classLevel =
+    safeText(
+      selectedRoom.class_level,
+      ''
+    ).trim();
+
+  const room =
+    safeText(
+      selectedRoom.room,
+      ''
+    ).trim();
+
+
+  if(
+    !Number.isFinite(academicYear) ||
+    !Number.isFinite(term) ||
+    !classLevel ||
+    !room
+  ){
+    throw new Error(
+      'ข้อมูลปี/เทอม/ชั้น/ห้องที่ปรึกษาไม่ครบ'
+    );
+  }
+
+
+  /*
+   * DB หา cohort เองและตรวจว่า
+   * Teacher Session คนนี้เป็นที่ปรึกษาห้องนี้จริง
+   */
+  const rows =
+    await fetchAllPages(
+      () =>
+        supabaseClient
+          .rpc(
+            'teacher_get_adviser_grade_rows_session',
+            {
+              p_token:
+                token,
+
+              p_academic_year:
+                academicYear,
+
+              p_term:
+                term,
+
+              p_class_level:
+                classLevel,
+
+              p_room:
+                room
+            }
+          )
+          .order(
+            'student_id',
+            {
+              ascending: true
+            }
+          )
+          .order(
+            'academic_year',
+            {
+              ascending: true
+            }
+          )
+          .order(
+            'term',
+            {
+              ascending: true
+            }
+          )
+          .order(
+            'grade_result_id',
+            {
+              ascending: true
+            }
+          ),
+      1000
+    );
+
+
+  /*
+   * ถ้าหน้ารายชื่อมี keyword filter
+   * ให้เก็บเฉพาะนักเรียนที่ caller ขอมา
+   */
+  const wantedIds =
+    new Set(ids);
+
+
+  (rows || []).forEach(row => {
+
+    const sid =
+      String(
+        row.student_id || ''
+      );
+
+
+    if(
+      !sid ||
+      !wantedIds.has(sid)
+    ){
+      return;
+    }
+
+
+    const key =
+      `${row.academic_year}|${row.term}`;
+
+
+    const eff =
+      normalizeGradeValue(
+        row.retest_grade_code ||
+        row.grade_code
+      );
+
+
+    if(!map.has(sid)){
+
+      map.set(
+        sid,
+        {
+          has_grade_result:
+            false,
+
+          has_risk_grade:
+            false,
+
+          grade_count:
+            0,
+
+          term_flags:
+            {}
+        }
+      );
+
+    }
+
+
+    const item =
+      map.get(sid);
+
+
+    item.has_grade_result =
+      true;
+
+    item.grade_count +=
+      1;
+
+
+    if(!item.term_flags[key]){
+
+      item.term_flags[key] = {
+        has_grade_result:
+          false,
+
+        has_risk_grade:
+          false,
+
+        grade_count:
+          0
+      };
+
+    }
+
+
+    const termFlag =
+      item.term_flags[key];
+
+
+    termFlag.has_grade_result =
+      true;
+
+    termFlag.grade_count +=
+      1;
+
+
+    if(isRiskGrade(eff)){
+
+      item.has_risk_grade =
+        true;
+
+      termFlag.has_risk_grade =
+        true;
+
+    }
+
+  });
+
+
+  return map;
+}
+    
     const LOWER_TERM_LABELS=[{class_level:'ม.1',term:1,label:'ม.1 เทอม 1'},{class_level:'ม.1',term:2,label:'ม.1 เทอม 2'},{class_level:'ม.2',term:1,label:'ม.2 เทอม 1'},{class_level:'ม.2',term:2,label:'ม.2 เทอม 2'},{class_level:'ม.3',term:1,label:'ม.3 เทอม 1'},{class_level:'ม.3',term:2,label:'ม.3 เทอม 2'}];
     const UPPER_TERM_LABELS=[{class_level:'ม.4',term:1,label:'ม.4 เทอม 1'},{class_level:'ม.4',term:2,label:'ม.4 เทอม 2'},{class_level:'ม.5',term:1,label:'ม.5 เทอม 1'},{class_level:'ม.5',term:2,label:'ม.5 เทอม 2'},{class_level:'ม.6',term:1,label:'ม.6 เทอม 1'},{class_level:'ม.6',term:2,label:'ม.6 เทอม 2'}];
     function getClassGroupByClassLevel(c){if(['ม.1','ม.2','ม.3'].includes(c))return {entry_level:'ม.1',labels:LOWER_TERM_LABELS}; if(['ม.4','ม.5','ม.6'].includes(c))return {entry_level:'ม.4',labels:UPPER_TERM_LABELS}; return {entry_level:'',labels:[]};}
     function getBaseAcademicYearByStudentAndRoom(student,room){const ey=safeNum(student.entry_academic_year); const elv=safeText(student.entry_level,''); if(ey&&(elv==='ม.1'||elv==='ม.4'))return ey; const ry=safeNum(room?.academic_year); const rc=safeText(room?.class_level,''); if(!ry)return null; if(rc==='ม.1'||rc==='ม.4')return ry; if(rc==='ม.2'||rc==='ม.5')return ry-1; if(rc==='ม.3'||rc==='ม.6')return ry-2; return null;}
     function getTermPlansForStudent(student,room){const roomClass=safeText(room?.class_level||student.computed_class_level,''); const group=getClassGroupByClassLevel(roomClass); const base=getBaseAcademicYearByStudentAndRoom(student,room); if(!base||!group.labels.length)return []; return group.labels.map(item=>{let offset=0; if(item.class_level==='ม.2'||item.class_level==='ม.5')offset=1; if(item.class_level==='ม.3'||item.class_level==='ม.6')offset=2; return {...item,academic_year:base+offset,key:`${base+offset}|${item.term}`};});}
-    async function loadAdviserStudents(){try{const selectedKey=safeText(el('adviserRoomSelect').value,''); state.selectedAdviserRoomKey=selectedKey; if(!selectedKey){renderAdviserStudents([]); resetAdviserSummary(); setStatus('adviserStatus','กรุณาเลือกห้องที่ปรึกษา','warn'); return;} const room=getSelectedAdviserRoom(); if(!room)throw new Error('ไม่พบข้อมูลห้องที่เลือก'); showLoading('กำลังโหลดรายชื่อนักเรียน...'); setStatus('adviserStatus','กำลังโหลดรายชื่อนักเรียน...','info'); const keyword=safeText(el('adviserKeyword').value,'').toLowerCase(); const year=safeNum(room.academic_year); const targetClass=safeText(room.class_level,''); const targetRoom=safeText(room.room,''); let query=supabaseClient.from('students').select('id,sid,raw_full_name,current_room,current_no,entry_academic_year,entry_level,is_active').eq('is_active',true).eq('current_room',targetRoom).order('current_no',{ascending:true}).order('raw_full_name',{ascending:true}); if(targetClass==='ม.1')query=query.eq('entry_academic_year',year).eq('entry_level','ม.1'); else if(targetClass==='ม.2')query=query.eq('entry_academic_year',year-1).eq('entry_level','ม.1'); else if(targetClass==='ม.3')query=query.eq('entry_academic_year',year-2).eq('entry_level','ม.1'); else if(targetClass==='ม.4')query=query.eq('entry_academic_year',year).eq('entry_level','ม.4'); else if(targetClass==='ม.5')query=query.eq('entry_academic_year',year-1).eq('entry_level','ม.4'); else if(targetClass==='ม.6')query=query.eq('entry_academic_year',year-2).eq('entry_level','ม.4'); const {data,error}=await query; if(error)throw error; let students=data||[]; if(keyword){students=students.filter(s=>safeText(s.sid,'').toLowerCase().includes(keyword)||safeText(s.raw_full_name,'').toLowerCase().includes(keyword));} const flags=await fetchStudentGradeFlags(students.map(s=>s.id)); state.adviserStudents=students.map(s=>{const flag=flags.get(String(s.id))||{has_grade_result:false,has_risk_grade:false,grade_count:0,term_flags:{}}; const plans=getTermPlansForStudent(s,room); const riskTerms=plans.filter(p=>flag.term_flags?.[p.key]?.has_risk_grade).map(p=>p.label); return {...s,computed_class_level:targetClass,...flag,term_plans:plans,risk_terms:riskTerms,has_risk_grade:riskTerms.length>0};}).sort((a,b)=>compareStudentNo(a.current_no,b.current_no)||safeText(a.raw_full_name,'').localeCompare(safeText(b.raw_full_name,''),'th')); renderAdviserStudents(state.adviserStudents); updateAdviserSummary(state.adviserStudents); setStatus('adviserStatus',`พบรายชื่อนักเรียน ${state.adviserStudents.length} คน ในห้อง ${targetClass}/${targetRoom}`,state.adviserStudents.length?'success':'warn');}catch(err){console.error(err); renderAdviserStudents([]); resetAdviserSummary(); setStatus('adviserStatus',err.message||'โหลดรายชื่อนักเรียนไม่สำเร็จ','error');}finally{hideLoading();}}
+    async function loadAdviserStudents(){try{const selectedKey=safeText(el('adviserRoomSelect').value,''); state.selectedAdviserRoomKey=selectedKey; if(!selectedKey){renderAdviserStudents([]); resetAdviserSummary(); setStatus('adviserStatus','กรุณาเลือกห้องที่ปรึกษา','warn'); return;} const room=getSelectedAdviserRoom(); if(!room)throw new Error('ไม่พบข้อมูลห้องที่เลือก'); showLoading('กำลังโหลดรายชื่อนักเรียน...'); setStatus('adviserStatus','กำลังโหลดรายชื่อนักเรียน...','info'); const keyword=safeText(el('adviserKeyword').value,'').toLowerCase(); const year=safeNum(room.academic_year); const targetClass=safeText(room.class_level,''); const targetRoom=safeText(room.room,''); let query=supabaseClient.from('students').select('id,sid,raw_full_name,current_room,current_no,entry_academic_year,entry_level,is_active').eq('is_active',true).eq('current_room',targetRoom).order('current_no',{ascending:true}).order('raw_full_name',{ascending:true}); if(targetClass==='ม.1')query=query.eq('entry_academic_year',year).eq('entry_level','ม.1'); else if(targetClass==='ม.2')query=query.eq('entry_academic_year',year-1).eq('entry_level','ม.1'); else if(targetClass==='ม.3')query=query.eq('entry_academic_year',year-2).eq('entry_level','ม.1'); else if(targetClass==='ม.4')query=query.eq('entry_academic_year',year).eq('entry_level','ม.4'); else if(targetClass==='ม.5')query=query.eq('entry_academic_year',year-1).eq('entry_level','ม.4'); else if(targetClass==='ม.6')query=query.eq('entry_academic_year',year-2).eq('entry_level','ม.4'); const {data,error}=await query; if(error)throw error; let students=data||[]; if(keyword){students=students.filter(s=>safeText(s.sid,'').toLowerCase().includes(keyword)||safeText(s.raw_full_name,'').toLowerCase().includes(keyword));} 
+const flags =
+  await fetchStudentGradeFlags(
+    students.map(s => s.id),
+    room
+  ); 
+state.adviserStudents=students.map(s=>{const flag=flags.get(String(s.id))||{has_grade_result:false,has_risk_grade:false,grade_count:0,term_flags:{}}; const plans=getTermPlansForStudent(s,room); const riskTerms=plans.filter(p=>flag.term_flags?.[p.key]?.has_risk_grade).map(p=>p.label); return {...s,computed_class_level:targetClass,...flag,term_plans:plans,risk_terms:riskTerms,has_risk_grade:riskTerms.length>0};}).sort((a,b)=>compareStudentNo(a.current_no,b.current_no)||safeText(a.raw_full_name,'').localeCompare(safeText(b.raw_full_name,''),'th')); renderAdviserStudents(state.adviserStudents); updateAdviserSummary(state.adviserStudents); setStatus('adviserStatus',`พบรายชื่อนักเรียน ${state.adviserStudents.length} คน ในห้อง ${targetClass}/${targetRoom}`,state.adviserStudents.length?'success':'warn');}catch(err){console.error(err); renderAdviserStudents([]); resetAdviserSummary(); setStatus('adviserStatus',err.message||'โหลดรายชื่อนักเรียนไม่สำเร็จ','error');}finally{hideLoading();}}
     function resetAdviserSummary(){el('adviserTotalStudents').textContent='0'; el('adviserGradedStudents').textContent='0'; el('adviserRiskStudents').textContent='0';}
     function updateAdviserSummary(rows){el('adviserTotalStudents').textContent=rows.length; el('adviserGradedStudents').textContent=rows.filter(r=>r.has_grade_result).length; el('adviserRiskStudents').textContent=rows.filter(r=>r.has_risk_grade).length;}
     function renderAdviserStudents(rows){const list=el('adviserStudentList'); if(!rows.length){list.innerHTML='<div class="card empty">ยังไม่มีข้อมูลนักเรียนในที่ปรึกษา</div>'; return;} list.innerHTML=rows.map(s=>{const status=s.risk_terms?.length?`<span class="badge badge-risk">เสี่ยง: ${escapeHtml(s.risk_terms.join(', '))}</span>`:s.has_grade_result?'<span class="badge badge-normal">ปกติ</span>':'<span class="badge badge-none">ยังไม่พบผลการเรียน</span>'; const buttons=(s.term_plans||[]).filter(p=>s.term_flags?.[p.key]?.has_grade_result).map(p=>`<button class="term-btn ${s.term_flags?.[p.key]?.has_risk_grade?'risk':''}" data-student-id="${escapeHtml(s.id)}" data-year="${escapeHtml(p.academic_year)}" data-term="${escapeHtml(p.term)}" data-label="${escapeHtml(p.label)}">${escapeHtml(p.class_level)}<br>เทอม ${escapeHtml(p.term)}</button>`).join(''); return `<div class="card"><div class="row-between"><div><div class="mono">${escapeHtml(s.sid||'-')}</div><div class="student-main">${escapeHtml(s.raw_full_name||'-')}</div><div class="student-sub">เลขที่ ${escapeHtml(safeText(s.current_no,'-'))}</div></div>${status}</div><div class="term-grid">${buttons||'<div class="student-sub">ยังไม่มีปุ่มดูผลการเรียน</div>'}</div></div>`;}).join(''); document.querySelectorAll('[data-student-id][data-year][data-term]').forEach(btn=>btn.addEventListener('click',()=>{const student=state.adviserStudents.find(s=>String(s.id)===String(btn.dataset.studentId)); if(student) openStudentDetail(student,{academic_year:safeNum(btn.dataset.year),term:safeNum(btn.dataset.term),label:safeText(btn.dataset.label,'')});}));}
