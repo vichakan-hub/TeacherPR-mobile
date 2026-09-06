@@ -2361,36 +2361,104 @@ function setRetestFilter(filter){
 
   applyRetestFilter(true);
 }
-    async function fetchRetestRowsBase(year,term,studentCode){
-      const buildQuery = () => {
-        let query = supabaseClient
-          .from('grade_results')
-          .select('id,student_id,student_code,student_name,student_no,academic_year,term,class_level,room,grade_code,retest_grade_code,subject_offering_id,subject_id,teacher_id,subject_code,subject_name,is_active')
-          .eq('teacher_id', state.currentUser.id)
-          .eq('is_active', true)
-          .in('grade_code', ['0','ร','มส','มผ'])
-          .order('class_level', { ascending:true })
-          .order('room', { ascending:true })
-          .order('student_no', { ascending:true })
-          .order('student_code', { ascending:true });
 
-        if(year !== null && year !== undefined){
-          query = query.eq('academic_year', year);
-        }
+async function fetchRetestRowsBase(
+  year,
+  term,
+  studentCode
+){
+  const token =
+    String(
+      state.teacherSessionToken || ''
+    ).trim();
 
-        if(term !== null && term !== undefined){
-          query = query.eq('term', term);
-        }
+  if(!token){
+    throw new Error(
+      'ไม่พบ Teacher Session Token กรุณาเข้าสู่ระบบใหม่'
+    );
+  }
 
-        if(studentCode){
-          query = query.ilike('student_code', `%${studentCode}%`);
-        }
 
-        return query;
-      };
+  const academicYear =
+    year !== null &&
+    year !== undefined &&
+    year !== ''
+      ? Number(year)
+      : null;
 
-      return await fetchAllPages(buildQuery, 1000);
-    }
+
+  const academicTerm =
+    term !== null &&
+    term !== undefined &&
+    term !== ''
+      ? Number(term)
+      : null;
+
+
+  const keyword =
+    safeText(
+      studentCode,
+      ''
+    );
+
+
+  /*
+   * Secure RPC ตัวเดียวกับ TeacherPR Desktop
+   *
+   * teacher_id จะมาจาก Session ฝั่ง DB
+   * Browser ไม่ส่ง teacher_id ไปเลือกเอง
+   */
+  return await fetchAllPages(
+    () =>
+      supabaseClient
+        .rpc(
+          'teacher_get_own_grade_rows_session',
+          {
+            p_token:
+              token,
+
+            p_academic_year:
+              academicYear,
+
+            p_term:
+              academicTerm,
+
+            p_student_code:
+              keyword || null,
+
+            p_grade_codes:
+              [
+                '0',
+                'ร',
+                'มส',
+                'มผ'
+              ]
+          }
+        )
+        .order(
+          'class_level',
+          { ascending:true }
+        )
+        .order(
+          'room',
+          { ascending:true }
+        )
+        .order(
+          'student_no',
+          { ascending:true }
+        )
+        .order(
+          'student_code',
+          { ascending:true }
+        )
+        .order(
+          'id',
+          { ascending:true }
+        ),
+    1000
+  );
+}
+    
     async function fetchRetestRequests(ids){
       const cleanIds = [...new Set((ids || []).filter(Boolean).map(String))];
       const map = new Map();
