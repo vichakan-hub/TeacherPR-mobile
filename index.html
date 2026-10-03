@@ -1177,17 +1177,123 @@ async function loginWithTeacherRpc(
       const termOptions=Array.isArray(value.term_options)&&value.term_options.length ? value.term_options.map(v=>safeNum(v)||v) : fallback.term_options;
       return {academic_year:academicYear,term,lock:!!value.lock,year_options:[...new Set(yearOptions)],term_options:[...new Set(termOptions)]};
     }
-    async function loadTeacherSettings(){
-      const base=buildDefaultOneSetting(); let map={};
-      try{
-        const {data,error}=await supabaseClient.from('app_settings').select('key,value').in('key',['teacher_retest_settings','teacher_adviser_settings','teacher_free_period_settings']);
-        if(error) throw error; (data||[]).forEach(r=>{map[r.key]=r.value;});
-      }catch(err){console.warn('load settings failed',err); showToast('โหลดค่าปี/เทอมไม่สำเร็จ','ระบบใช้ค่าตามวันที่ปัจจุบันแทนชั่วคราว','warn');}
-      state.retestSettings=normalizeSettingObject(map.teacher_retest_settings, base);
-      state.adviserSettings=normalizeSettingObject(map.teacher_adviser_settings || map.teacher_retest_settings, base);
-      state.freePeriodSettings=normalizeSettingObject(map.teacher_free_period_settings, base);
-      applyTeacherSettingsToPage();
+async function loadTeacherSettings(){
+
+  const base =
+    buildDefaultOneSetting();
+
+  let map = {};
+
+
+  try{
+
+    const token =
+      String(
+        state.teacherSessionToken || ''
+      ).trim();
+
+
+    if(!token){
+
+      throw new Error(
+        'ไม่พบ Teacher Session Token กรุณาเข้าสู่ระบบใหม่'
+      );
+
     }
+
+
+    /*
+     * ==========================================
+     * Secure RPC
+     *
+     * ไม่อ่าน app_settings โดยตรงอีกต่อไป
+     * ==========================================
+     */
+    const { data, error } =
+      await supabaseClient.rpc(
+        'teacher_get_mobile_settings_session',
+        {
+          p_token:
+            token
+        }
+      );
+
+
+    if(error){
+
+      throw error;
+
+    }
+
+
+    map =
+      data &&
+      typeof data === 'object'
+        ? data
+        : {};
+
+
+  }catch(err){
+
+    console.warn(
+      'load settings failed',
+      err
+    );
+
+
+    showToast(
+      'โหลดค่าปี/เทอมไม่สำเร็จ',
+      err?.message ||
+      'ระบบใช้ค่าตามวันที่ปัจจุบันแทนชั่วคราว',
+      'warn'
+    );
+
+  }
+
+
+  /*
+   * ==========================================
+   * Retest
+   * ==========================================
+   */
+  state.retestSettings =
+    normalizeSettingObject(
+      map.teacher_retest_settings,
+      base
+    );
+
+
+  /*
+   * ==========================================
+   * Adviser
+   *
+   * ถ้าไม่มี setting ของ adviser
+   * ให้ fallback ไปใช้ retest setting
+   * ==========================================
+   */
+  state.adviserSettings =
+    normalizeSettingObject(
+      map.teacher_adviser_settings ||
+      map.teacher_retest_settings,
+      base
+    );
+
+
+  /*
+   * ==========================================
+   * Free Period
+   * ==========================================
+   */
+  state.freePeriodSettings =
+    normalizeSettingObject(
+      map.teacher_free_period_settings,
+      base
+    );
+
+
+  applyTeacherSettingsToPage();
+
+}
     async function loadMobileSettings(){return loadTeacherSettings();}
     function renderYearTermControl(node,options,selectedValue,lock,allowAllText){
       if(!node) return; const valueText=selectedValue==null?'':String(selectedValue); const tag=String(node.tagName||'').toUpperCase();
@@ -2459,43 +2565,117 @@ async function fetchRetestRowsBase(
   );
 }
     
-    async function fetchRetestRequests(ids){
-      const cleanIds = [...new Set((ids || []).filter(Boolean).map(String))];
-      const map = new Map();
+async function fetchRetestRequests(ids){
 
-      if(!cleanIds.length){
-        return map;
-      }
+  const cleanIds = [
+    ...new Set(
+      (ids || [])
+        .filter(Boolean)
+        .map(String)
+    )
+  ];
 
-      for(let i = 0; i < cleanIds.length; i += 80){
-        const chunk = cleanIds.slice(i, i + 80);
+  const map = new Map();
 
-        const rows = await fetchAllPages(() =>
-          supabaseClient
-            .from('grade_retest_requests')
-            .select('id,grade_result_id,requested_retest_grade_code,status,submitted_at,updated_at,is_active')
-            .in('grade_result_id', chunk)
-            .eq('is_active', true),
-          1000
+
+  if(!cleanIds.length){
+    return map;
+  }
+
+
+  const token =
+    String(
+      state.teacherSessionToken || ''
+    ).trim();
+
+
+  if(!token){
+    throw new Error(
+      'ไม่พบ Teacher Session Token กรุณาเข้าสู่ระบบใหม่'
+    );
+  }
+
+
+  /*
+   * ==========================================
+   * โหลดทีละ 80 รายการ
+   * ผ่าน Session-secured RPC เท่านั้น
+   * ==========================================
+   */
+  for(
+    let i = 0;
+    i < cleanIds.length;
+    i += 80
+  ){
+
+    const chunk =
+      cleanIds.slice(
+        i,
+        i + 80
+      );
+
+
+    const { data, error } =
+      await supabaseClient.rpc(
+        'teacher_get_retest_requests_session',
+        {
+          p_token:
+            token,
+
+          p_grade_result_ids:
+            chunk
+        }
+      );
+
+
+    if(error){
+      throw error;
+    }
+
+
+    (data || []).forEach(req => {
+
+      const key =
+        String(
+          req.grade_result_id || ''
         );
 
-        (rows || []).forEach(req => {
-          const key = String(req.grade_result_id || '');
-          if(!key) return;
 
-          const old = map.get(key);
-          if(
-            !old ||
-            new Date(req.updated_at || req.submitted_at || 0) >=
-            new Date(old.updated_at || old.submitted_at || 0)
-          ){
-            map.set(key, req);
-          }
-        });
+      if(!key){
+        return;
       }
 
-      return map;
-    }
+
+      const old =
+        map.get(key);
+
+
+      if(
+        !old ||
+        new Date(
+          req.updated_at ||
+          req.submitted_at ||
+          0
+        ) >=
+        new Date(
+          old.updated_at ||
+          old.submitted_at ||
+          0
+        )
+      ){
+        map.set(
+          key,
+          req
+        );
+      }
+
+    });
+
+  }
+
+
+  return map;
+}
    
 async function loadRetestRows({ resetFilter = true } = {}){
   try{
@@ -4164,7 +4344,171 @@ function renderGradeDetailRows(rows){
 
     function getBookingFilters(){return {academic_year:safeNum(el('bookingYear').value),term:safeNum(el('bookingTerm').value),class_level:safeText(el('bookingClassLevel').value,''),room:safeText(el('bookingRoom').value,'')};}
     function updateBookingSummary(){const f=getBookingFilters(); el('bookingSummaryClassRoom').textContent=f.class_level&&f.room?`${f.class_level}/${f.room}`:'-'; el('bookingSummarySlotCount').textContent=state.bookingSlots.length; el('bookingSummaryMineCount').textContent=state.myReservations.length;}
-    async function loadBookingSlots(){try{const f=getBookingFilters(); if(!f.academic_year||!f.term||!f.class_level||!f.room){renderBookingSlots([]); setStatus('bookingSlotStatus','กรุณาเลือกปี/เทอม ชั้น และห้องให้ครบ','warn'); return;} showLoading('กำลังโหลดคาบว่าง...'); let q=supabaseClient.from('emptysec').select('id,academic_year,term,slot_code,class_level,room,class_room,day_of_week,period_no,note,is_active').eq('academic_year',f.academic_year).eq('term',f.term).eq('class_level',f.class_level).eq('room',f.room).eq('is_active',true).order('day_of_week',{ascending:true}).order('period_no',{ascending:true}); const {data,error}=await q; if(error)throw error; state.bookingSlots=data||[]; renderBookingSlots(state.bookingSlots); updateBookingSummary(); setStatus('bookingSlotStatus',state.bookingSlots.length?`พบคาบว่าง ${state.bookingSlots.length} รายการ`:'ไม่พบคาบว่างตามเงื่อนไข',state.bookingSlots.length?'success':'warn');}catch(err){console.error(err); renderBookingSlots([]); setStatus('bookingSlotStatus',err.message||'โหลดคาบว่างไม่สำเร็จ','error'); showToast('โหลดคาบว่างไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error');}finally{hideLoading();}}
+    async function loadBookingSlots(){
+
+  try{
+
+    const f =
+      getBookingFilters();
+
+
+    if(
+      !f.academic_year ||
+      !f.term ||
+      !f.class_level ||
+      !f.room
+    ){
+
+      state.bookingSlots = [];
+
+      renderBookingSlots([]);
+
+      setStatus(
+        'bookingSlotStatus',
+        'กรุณาเลือกปี/เทอม ชั้น และห้องให้ครบ',
+        'warn'
+      );
+
+      return;
+    }
+
+
+    const token =
+      String(
+        state.teacherSessionToken || ''
+      ).trim();
+
+
+    if(!token){
+
+      throw new Error(
+        'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'
+      );
+
+    }
+
+
+    showLoading(
+      'กำลังโหลดคาบว่าง...'
+    );
+
+
+    setStatus(
+      'bookingSlotStatus',
+      'กำลังโหลดคาบว่าง...',
+      'info'
+    );
+
+
+    /*
+     * ==========================================
+     * Secure RPC
+     *
+     * Browser ไม่อ่าน emptysec โดยตรงอีกต่อไป
+     * ==========================================
+     */
+    const { data, error } =
+      await supabaseClient.rpc(
+        'teacher_get_free_period_slots_session',
+        {
+          p_token:
+            token,
+
+          p_academic_year:
+            f.academic_year,
+
+          p_term:
+            f.term,
+
+          p_class_level:
+            f.class_level,
+
+          p_room:
+            f.room
+        }
+      );
+
+
+    if(error){
+
+      throw error;
+
+    }
+
+
+    state.bookingSlots =
+      Array.isArray(data)
+        ? data
+        : [];
+
+
+    renderBookingSlots(
+      state.bookingSlots
+    );
+
+
+    updateBookingSummary();
+
+
+    setStatus(
+      'bookingSlotStatus',
+
+      state.bookingSlots.length
+        ? `พบคาบว่าง ${state.bookingSlots.length} รายการ`
+        : 'ไม่พบคาบว่างตามเงื่อนไข',
+
+      state.bookingSlots.length
+        ? 'success'
+        : 'warn'
+    );
+
+
+  }catch(err){
+
+    console.error(
+      'loadBookingSlots ERROR',
+      err
+    );
+
+
+    state.bookingSlots =
+      [];
+
+
+    renderBookingSlots([]);
+
+
+    updateBookingSummary();
+
+
+    const msg =
+      err?.message ||
+      err?.details ||
+      err?.hint ||
+      'โหลดคาบว่างไม่สำเร็จ';
+
+
+    setStatus(
+      'bookingSlotStatus',
+      msg,
+      'error'
+    );
+
+
+    showToast(
+      'โหลดคาบว่างไม่สำเร็จ',
+      msg,
+      'error'
+    );
+
+
+  }finally{
+
+    hideLoading();
+
+  }
+
+}
     function bookingDayClass(day){const d=safeText(day,''); if(d.includes('จันทร์'))return 'day-mon'; if(d.includes('อังคาร'))return 'day-tue'; if(d.includes('พุธ'))return 'day-wed'; if(d.includes('พฤหัส'))return 'day-thu'; if(d.includes('ศุกร์'))return 'day-fri'; return '';}
     function renderBookingSlots(rows){const list=el('bookingSlotList'); if(!rows.length){list.innerHTML='<div class="card empty">ยังไม่มีข้อมูลคาบว่าง</div>'; updateBookingSummary(); return;} list.innerHTML=rows.map(s=>`<div class="booking-free-card ${bookingDayClass(s.day_of_week)}"><div class="booking-free-top"><div><div class="booking-free-code">${escapeHtml(s.slot_code||'-')}</div><div class="booking-free-room">${escapeHtml(s.class_room || `${s.class_level}/${s.room}`)}</div></div><div class="booking-free-period">คาบ ${escapeHtml(s.period_no||'-')}</div></div><div class="booking-free-note">${escapeHtml(s.day_of_week||'-')} • ${escapeHtml(s.note||'คาบว่าง')}</div><button class="btn btn-primary btn-block" data-book-slot="${escapeHtml(s.id)}">จองคาบนี้</button></div>`).join(''); document.querySelectorAll('[data-book-slot]').forEach(btn=>btn.addEventListener('click',()=>{const slot=state.bookingSlots.find(s=>String(s.id)===String(btn.dataset.bookSlot)); if(slot) openReserveModal(slot);})); updateBookingSummary();}
     function fpTodayISO(){const d=new Date(); d.setHours(0,0,0,0); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`;}
@@ -4355,7 +4699,195 @@ function bookingMoveReserveMonth(offset){
   }
 }
     function validateReserveDate(slot,date){if(!slot)throw new Error('ไม่พบคาบว่างที่เลือก'); if(!date)throw new Error('กรุณาเลือกวันที่ต้องการจอง'); if(date<fpTodayISO())throw new Error('ไม่สามารถจองย้อนหลังได้'); const day=getThaiDayNameFromISO(date); if(day!==slot.day_of_week)throw new Error(`วันที่เลือกเป็น${day} แต่คาบว่างนี้เป็น${slot.day_of_week}`);}
-    async function confirmReserve(){try{const slot=state.selectedSlot; const date=safeText(el('reserveDateInput').value,''); validateReserveDate(slot,date); el('confirmReserveBtn').disabled=true; setStatus('reserveStatus','กำลังตรวจสอบการจอง...','info'); const {data:existing,error:readError}=await supabaseClient.from('free_period_reservations').select('id,teacher_full_name,teacher_code').eq('status','reserved').eq('reserve_date',date).eq('slot_id',slot.id).limit(1); if(readError)throw readError; if(existing&&existing.length){throw new Error(`คาบนี้ถูกจองแล้วโดย ${existing[0].teacher_full_name || existing[0].teacher_code || 'ครูท่านอื่น'}`);} const payload={slot_id:slot.id,slot_code:slot.slot_code,teacher_id:state.currentUser.id,teacher_code:state.currentUser.teacher_code,teacher_full_name:state.currentUser.full_name,academic_year:Number(slot.academic_year),term:Number(slot.term),class_level:slot.class_level,room:String(slot.room),class_room:slot.class_room,day_of_week:slot.day_of_week,period_no:Number(slot.period_no),reserve_date:date,status:'reserved'}; const {error}=await supabaseClient.from('free_period_reservations').insert(payload); if(error)throw error; closeReserveModal(); showToast('จองคาบว่างสำเร็จ',`${payload.class_room} ${payload.day_of_week} คาบ ${payload.period_no} วันที่ ${fpFormatThaiDate(date)}`,'success'); await loadMyReservations(false);}catch(err){const msg=String(err.message||'จองไม่สำเร็จ'); const friendly=msg.includes('duplicate')||msg.includes('unique')?'คาบนี้ถูกจองแล้วในวันที่เลือก':msg; setStatus('reserveStatus',friendly,'error'); showToast('จองไม่สำเร็จ',friendly,'error');}finally{el('confirmReserveBtn').disabled=false;}}
+   async function confirmReserve(){
+
+  try{
+
+    const slot =
+      state.selectedSlot;
+
+    const date =
+      safeText(
+        el('reserveDateInput').value,
+        ''
+      );
+
+
+    /*
+     * Validation ฝั่ง UI
+     * Database จะตรวจซ้ำอีกครั้ง
+     */
+    validateReserveDate(
+      slot,
+      date
+    );
+
+
+    const token =
+      String(
+        state.teacherSessionToken || ''
+      ).trim();
+
+
+    if(!token){
+
+      throw new Error(
+        'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'
+      );
+
+    }
+
+
+    if(!slot?.id){
+
+      throw new Error(
+        'ไม่พบคาบว่างที่ต้องการจอง'
+      );
+
+    }
+
+
+    el('confirmReserveBtn').disabled =
+      true;
+
+
+    setStatus(
+      'reserveStatus',
+      'กำลังตรวจสอบและบันทึกการจอง...',
+      'info'
+    );
+
+
+    /*
+     * =====================================================
+     * Secure RPC
+     *
+     * Browser ส่งเพียง
+     * - Teacher Session Token
+     * - slot_id
+     * - reserve_date
+     *
+     * teacher_id / teacher_code / ชื่อครู
+     * และรายละเอียดคาบ
+     * Database เป็นผู้หาเองทั้งหมด
+     * =====================================================
+     */
+    const { data, error } =
+      await supabaseClient.rpc(
+        'teacher_reserve_free_period_session',
+        {
+          p_token:
+            token,
+
+          p_slot_id:
+            slot.id,
+
+          p_reserve_date:
+            date
+        }
+      );
+
+
+    if(error){
+
+      throw error;
+
+    }
+
+
+    const result =
+      Array.isArray(data)
+        ? data[0]
+        : data;
+
+
+    /*
+     * กรณีคาบถูกจองไปแล้ว
+     * RPC จะคืน ok:false
+     */
+    if(
+      !result ||
+      result.ok !== true
+    ){
+
+      throw new Error(
+        result?.message ||
+        'ไม่สามารถจองคาบนี้ได้'
+      );
+
+    }
+
+
+    /*
+     * ปิด Modal หลัง Database ยืนยันสำเร็จ
+     */
+    closeReserveModal();
+
+
+    showToast(
+      'จองคาบว่างสำเร็จ',
+      `${
+        result.class_room || slot.class_room || '-'
+      } ${
+        result.day_of_week || slot.day_of_week || ''
+      } คาบ ${
+        result.period_no || slot.period_no || '-'
+      } วันที่ ${
+        fpFormatThaiDate(
+          result.reserve_date || date
+        )
+      }`,
+      'success'
+    );
+
+
+    /*
+     * โหลดรายการของฉันใหม่
+     */
+    await loadMyReservations(false);
+
+
+  }catch(err){
+
+    console.error(
+      'confirmReserve ERROR',
+      err
+    );
+
+
+    const msg =
+      err?.message ||
+      err?.details ||
+      err?.hint ||
+      'จองคาบไม่สำเร็จ';
+
+
+    setStatus(
+      'reserveStatus',
+      msg,
+      'error'
+    );
+
+
+    showToast(
+      'จองไม่สำเร็จ',
+      msg,
+      'error'
+    );
+
+
+  }finally{
+
+    if(el('confirmReserveBtn')){
+
+      el('confirmReserveBtn').disabled =
+        false;
+
+    }
+
+  }
+
+}
     function getReservationFilters(){const f=getBookingFilters(); return f;}
 
     function bookingGetStatusText(status){const s=safeText(status,'reserved'); if(s==='reserved')return 'จองแล้ว'; if(s==='cancelled')return 'ยกเลิกแล้ว'; return s;}
@@ -4466,52 +4998,140 @@ function bookingMoveReserveMonth(offset){
   };
 }
 
-    async function loadMyReservations(showStatus=true){
-      try{
-        if(!state.currentUser) return;
+async function loadMyReservations(
+  showStatus = true
+){
 
-        const f = getReservationFilters();
+  try{
 
-        const rows = await fetchAllPages(() => {
-          let q = supabaseClient
-            .from('free_period_reservations')
-            .select('id,slot_id,slot_code,teacher_id,teacher_code,teacher_full_name,academic_year,term,class_level,room,class_room,day_of_week,period_no,reserve_date,status,created_at,cancelled_at,cancelled_by_teacher_code')
-            .eq('status', 'reserved')
-            .eq('teacher_code', state.currentUser.teacher_code)
-            .order('reserve_date', { ascending:false })
-            .order('period_no', { ascending:true });
-
-          if(f.academic_year){
-            q = q.eq('academic_year', f.academic_year);
-          }
-
-          if(f.term){
-            q = q.eq('term', f.term);
-          }
-
-          return q;
-        }, 1000);
-
-        state.myReservations = rows || [];
-        renderMyReservations(state.myReservations);
-        updateBookingSummary();
-
-        if(showStatus){
-          setStatus(
-            'bookingMineStatus',
-            state.myReservations.length
-              ? `พบรายการจองของฉัน ${state.myReservations.length} รายการ`
-              : 'ยังไม่มีรายการจองของฉัน',
-            state.myReservations.length ? 'success' : 'warn'
-          );
-        }
-      }catch(err){
-        console.error(err);
-        state.myReservations = [];
-        renderMyReservations([]);
-        showToast('โหลดรายการจองไม่สำเร็จ', err.message || 'เกิดข้อผิดพลาด', 'error');
-      }
+    if(!state.currentUser){
+      return;
     }
+
+
+    const token =
+      String(
+        state.teacherSessionToken || ''
+      ).trim();
+
+
+    if(!token){
+
+      throw new Error(
+        'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'
+      );
+
+    }
+
+
+    const f =
+      getReservationFilters();
+
+
+    /*
+     * =====================================================
+     * โหลดเฉพาะรายการของ Teacher Session คนนี้
+     *
+     * Browser ไม่ส่ง teacher_code เพื่อใช้เป็นสิทธิ์
+     * Database หา teacher_id จาก Token เอง
+     * =====================================================
+     */
+    const rows =
+      await fetchAllPages(
+        () =>
+          supabaseClient.rpc(
+            'teacher_get_my_free_period_reservations_session',
+            {
+              p_token:
+                token,
+
+              p_academic_year:
+                f.academic_year ||
+                null,
+
+              p_term:
+                f.term ||
+                null
+            }
+          ),
+        1000
+      );
+
+
+    state.myReservations =
+      rows || [];
+
+
+    renderMyReservations(
+      state.myReservations
+    );
+
+
+    updateBookingSummary();
+
+
+    if(showStatus){
+
+      setStatus(
+        'bookingMineStatus',
+
+        state.myReservations.length
+          ? `พบรายการจองของฉัน ${state.myReservations.length} รายการ`
+          : 'ยังไม่มีรายการจองของฉัน',
+
+        state.myReservations.length
+          ? 'success'
+          : 'warn'
+      );
+
+    }
+
+
+  }catch(err){
+
+    console.error(
+      'loadMyReservations ERROR',
+      err
+    );
+
+
+    state.myReservations =
+      [];
+
+
+    renderMyReservations([]);
+
+
+    updateBookingSummary();
+
+
+    const msg =
+      err?.message ||
+      err?.details ||
+      err?.hint ||
+      'โหลดรายการจองไม่สำเร็จ';
+
+
+    if(showStatus){
+
+      setStatus(
+        'bookingMineStatus',
+        msg,
+        'error'
+      );
+
+    }
+
+
+    showToast(
+      'โหลดรายการจองไม่สำเร็จ',
+      msg,
+      'error'
+    );
+
+  }
+
+}
     function renderMyReservations(rows){
       const list=el('bookingMineList');
       if(!rows.length){
@@ -4543,7 +5163,163 @@ function bookingMoveReserveMonth(offset){
       updateBookingSummary();
       bookingUpdatePrintSelectionUI();
     }
-    async function cancelReservation(id){try{if(!confirm('ต้องการยกเลิกรายการจองนี้หรือไม่'))return; showLoading('กำลังยกเลิกการจอง...'); const {data,error:readError}=await supabaseClient.from('free_period_reservations').select('id,teacher_code,status').eq('id',id).limit(1); if(readError)throw readError; const row=data?.[0]; if(!row)throw new Error('ไม่พบรายการจองนี้'); if(row.status!=='reserved')throw new Error('รายการนี้ไม่ได้อยู่ในสถานะจองแล้ว'); if(String(row.teacher_code||'').toUpperCase()!==String(state.currentUser.teacher_code||'').toUpperCase())throw new Error('ยกเลิกได้เฉพาะรายการที่คุณครูเป็นผู้จองเท่านั้น'); const {error}=await supabaseClient.from('free_period_reservations').update({status:'cancelled',cancelled_at:new Date().toISOString(),cancelled_by_teacher_code:state.currentUser.teacher_code}).eq('id',id); if(error)throw error; showToast('ยกเลิกการจองแล้ว','อัปเดตสถานะเป็น cancelled เรียบร้อย','success'); await loadMyReservations(true);}catch(err){showToast('ยกเลิกไม่สำเร็จ',err.message||'เกิดข้อผิดพลาด','error');}finally{hideLoading();}}
+    async function cancelReservation(id){
+
+  try{
+
+    const reservationId =
+      safeText(
+        id,
+        ''
+      );
+
+
+    if(!reservationId){
+
+      throw new Error(
+        'ไม่พบรายการจองที่ต้องการยกเลิก'
+      );
+
+    }
+
+
+    const confirmed =
+      window.confirm(
+        'ต้องการยกเลิกรายการจองนี้หรือไม่'
+      );
+
+
+    if(!confirmed){
+      return;
+    }
+
+
+    const token =
+      String(
+        state.teacherSessionToken || ''
+      ).trim();
+
+
+    if(!token){
+
+      throw new Error(
+        'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'
+      );
+
+    }
+
+
+    showLoading(
+      'กำลังยกเลิกการจอง...'
+    );
+
+
+    /*
+     * =====================================================
+     * Secure RPC
+     *
+     * Database ตรวจเองว่า
+     * reservation นี้เป็นของครูจาก Session จริงหรือไม่
+     * =====================================================
+     */
+    const { data, error } =
+      await supabaseClient.rpc(
+        'teacher_cancel_free_period_reservation_session',
+        {
+          p_token:
+            token,
+
+          p_reservation_id:
+            reservationId
+        }
+      );
+
+
+    if(error){
+
+      throw error;
+
+    }
+
+
+    const result =
+      Array.isArray(data)
+        ? data[0]
+        : data;
+
+
+    if(
+      !result ||
+      result.ok !== true
+    ){
+
+      throw new Error(
+        result?.message ||
+        'ไม่สามารถยกเลิกการจองได้'
+      );
+
+    }
+
+
+    /*
+     * ถ้ารายการนี้ถูกเลือกสำหรับพิมพ์อยู่
+     * เอาออกจาก selection ด้วย
+     */
+    if(
+      state.selectedMyReservationIds
+        instanceof Set
+    ){
+
+      state.selectedMyReservationIds.delete(
+        String(reservationId)
+      );
+
+    }
+
+
+    showToast(
+      'ยกเลิกการจองแล้ว',
+      result.message ||
+      'ยกเลิกการจองเรียบร้อยแล้ว',
+      'success'
+    );
+
+
+    /*
+     * โหลดรายการใหม่
+     */
+    await loadMyReservations(true);
+
+
+  }catch(err){
+
+    console.error(
+      'cancelReservation ERROR',
+      err
+    );
+
+
+    const msg =
+      err?.message ||
+      err?.details ||
+      err?.hint ||
+      'ยกเลิกการจองไม่สำเร็จ';
+
+
+    showToast(
+      'ยกเลิกไม่สำเร็จ',
+      msg,
+      'error'
+    );
+
+
+  }finally{
+
+    hideLoading();
+
+  }
+
+}
 
     function bindEvents(){
       el('loginBtn').addEventListener('click',login); el('loginTeacherCode').addEventListener('keydown',e=>{if(e.key==='Enter')login();}); el('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')login();}); el('logoutBtn').addEventListener('click',logout);
