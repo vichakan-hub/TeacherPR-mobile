@@ -592,6 +592,793 @@
 }
 
 
+/* ==========================================
+   TeacherPR Mobile
+   Fullscreen Student Grade Table
+   ========================================== */
+
+.grade-table-full-view{
+  position:fixed;
+  inset:0;
+  z-index:110;
+  width:100%;
+  height:100vh;
+  height:100dvh;
+  display:flex;
+  background:#f4f7fb;
+  overflow:hidden;
+}
+
+.grade-table-full-shell{
+  width:100%;
+  height:100%;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  background:#f4f7fb;
+}
+
+/* ===== Header ===== */
+
+.grade-table-full-header{
+  flex:0 0 auto;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding:
+    calc(18px + env(safe-area-inset-top))
+    20px
+    20px;
+  background:linear-gradient(
+    120deg,
+    #1d4ed8 0%,
+    #2563eb 60%,
+    #22b8cf 100%
+  );
+  color:#fff;
+}
+
+.grade-table-full-heading{
+  flex:1;
+  min-width:0;
+}
+
+.grade-table-full-kicker{
+  font-size:11px;
+  font-weight:800;
+  opacity:.85;
+}
+
+.grade-table-full-heading h2{
+  margin:5px 0;
+  font-size:24px;
+  line-height:1.25;
+  font-weight:900;
+}
+
+.grade-table-full-heading p{
+  margin:0;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.5;
+  overflow-wrap:anywhere;
+  color:rgba(255,255,255,.9);
+}
+
+.grade-table-full-close{
+  flex:0 0 auto;
+  min-height:42px;
+  padding:0 15px;
+  border-radius:14px;
+  color:#fff;
+  background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.25);
+  font-size:14px;
+  font-weight:800;
+}
+
+/* ===== Summary KPI ===== */
+
+.grade-table-full-summary{
+  flex:0 0 auto;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  padding:14px 16px;
+  background:#f4f7fb;
+}
+
+.grade-table-full-kpi{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-width:0;
+  min-height:76px;
+  padding:10px 6px;
+  background:#fff;
+  border:1px solid #dce7f2;
+  border-radius:17px;
+  box-shadow:0 5px 14px rgba(15,23,42,.04);
+  text-align:center;
+}
+
+.grade-table-full-kpi span{
+  font-size:12px;
+  font-weight:800;
+  color:#6b7a90;
+}
+
+.grade-table-full-kpi strong{
+  margin-top:3px;
+  font-size:25px;
+  line-height:1.2;
+  font-weight:900;
+  color:#1d4ed8;
+}
+
+.grade-table-full-kpi:nth-child(2) strong{
+  color:#0f9d58;
+}
+
+.grade-table-full-kpi:nth-child(3) strong{
+  color:#17324d;
+}
+
+/* ===== Scrollable Table ===== */
+
+.grade-table-full-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  min-width:0;
+  margin:0 12px;
+  overflow:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  background:#fff;
+  border:1px solid #d8e4ef;
+  border-radius:16px;
+}
+
+.grade-table-full-table{
+  width:100%;
+  min-width:1240px;
+  border-collapse:separate;
+  border-spacing:0;
+  table-layout:auto;
+  font-size:13px;
+}
+
+/* ===== Table Header ===== */
+
+.grade-table-full-table thead th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  padding:13px 12px;
+  background:#eaf2ff;
+  border-right:1px solid #d8e4ef;
+  border-bottom:2px solid #bfdbfe;
+  color:#17324d;
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+/* ===== Table Body ===== */
+
+.grade-table-full-table tbody td{
+  padding:12px 10px;
+  border-right:1px solid #edf2f7;
+  border-bottom:1px solid #e8eef5;
+  background:#fff;
+  color:#17324d;
+  text-align:center;
+  vertical-align:middle;
+  font-size:13px;
+  line-height:1.5;
+}
+
+.grade-table-full-table tbody tr:nth-child(even) td{
+  background:#f8fbff;
+}
+
+.grade-table-full-table tbody tr:hover td{
+  background:#eff6ff;
+}
+
+.grade-table-full-table th:nth-child(3),
+.grade-table-full-table td:nth-child(3),
+.grade-table-full-table th:nth-child(12),
+.grade-table-full-table td:nth-child(12){
+  text-align:left;
+  min-width:170px;
+}
+
+/* ===== Hint ===== */
+
+.grade-table-full-hint{
+  flex:0 0 auto;
+  padding:10px 16px
+    calc(12px + env(safe-area-inset-bottom));
+  background:#f4f7fb;
+  color:#718096;
+  font-size:11px;
+  font-weight:700;
+  text-align:center;
+}
+
+/* ===== Mobile ===== */
+
+@media (max-width:600px){
+
+  .grade-table-full-header{
+    padding:
+      calc(14px + env(safe-area-inset-top))
+      14px
+      16px;
+  }
+
+  .grade-table-full-heading h2{
+    font-size:21px;
+  }
+
+  .grade-table-full-close{
+    padding:0 12px;
+    font-size:13px;
+  }
+
+  .grade-table-full-summary{
+    gap:7px;
+    padding:10px;
+  }
+
+  .grade-table-full-kpi{
+    min-height:70px;
+    border-radius:14px;
+  }
+
+  .grade-table-full-kpi span{
+    font-size:10px;
+  }
+
+  .grade-table-full-kpi strong{
+    font-size:22px;
+  }
+
+  .grade-table-full-scroll{
+    margin:0 8px;
+    border-radius:13px;
+  }
+
+  .grade-table-full-table{
+    min-width:1120px;
+  }
+
+  .grade-table-full-table thead th{
+    padding:10px 8px;
+    font-size:11px;
+  }
+
+  .grade-table-full-table tbody td{
+    padding:10px 8px;
+    font-size:12px;
+  }
+
+}
+
+
+/* =====================================================
+   TeacherPR - Student Grade A4 Fullscreen Preview
+   รูปแบบเดียวกับ StudentPR
+   ===================================================== */
+
+.grade-a4-preview{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  height:100vh;
+  height:100dvh;
+  background:#e9eef5;
+  overflow:hidden;
+}
+
+body.grade-a4-open{
+  overflow:hidden !important;
+}
+
+/* ===== Toolbar ===== */
+
+.grade-a4-toolbar{
+  flex:0 0 auto;
+  min-height:62px;
+  padding:10px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:#ffffff;
+  border-bottom:1px solid #dbe4ee;
+  box-shadow:0 4px 14px rgba(15,23,42,.08);
+}
+
+.grade-a4-toolbar-title{
+  color:#17324a;
+  font-size:15px;
+  font-weight:800;
+}
+
+.grade-a4-toolbar-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.grade-a4-capture-btn,
+.grade-a4-close-btn{
+  min-height:40px;
+  padding:0 14px;
+  border-radius:13px;
+  font-family:'Kanit',sans-serif;
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+  cursor:pointer;
+}
+
+.grade-a4-capture-btn{
+  color:#1d4ed8;
+  background:#eff6ff;
+  border:1px solid #bfdbfe;
+}
+
+.grade-a4-close-btn{
+  color:#b91c1c;
+  background:#fff5f5;
+  border:1px solid #fecaca;
+}
+
+/* ซ่อนเครื่องมือสำหรับบันทึกภาพ */
+
+.grade-a4-preview.capture-clean
+.grade-a4-toolbar{
+  display:none !important;
+}
+
+/* ===== พื้นที่แสดงกระดาษ ===== */
+
+.grade-a4-stage{
+  flex:1 1 auto;
+  min-height:0;
+  width:100%;
+  padding:8px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+
+.grade-a4-scale-box{
+  position:relative;
+  width:794px;
+  height:1123px;
+  flex:0 0 auto;
+  margin:0 auto;
+}
+
+/* กระดาษ A4 */
+
+.grade-a4-sheet{
+  position:absolute;
+  top:0;
+  left:0;
+
+  width:794px !important;
+  height:1123px !important;
+
+  min-width:794px !important;
+  max-width:794px !important;
+
+  padding:26px 28px;
+
+  background:#ffffff;
+  color:#17324a;
+  font-family:'Kanit',sans-serif;
+
+  transform-origin:top left;
+  overflow:hidden;
+
+  box-shadow:0 18px 48px rgba(15,23,42,.18);
+}
+
+/* ===== หัวรายงาน ===== */
+
+.grade-a4-header{
+  margin-bottom:14px;
+}
+
+.grade-a4-school{
+  text-align:center;
+  color:#64748b;
+  font-size:13px;
+  font-weight:700;
+}
+
+.grade-a4-title{
+  margin-top:2px;
+  text-align:center;
+  color:#17324a;
+  font-size:26px;
+  line-height:1.25;
+  font-weight:900;
+}
+
+/* ===== ข้อมูลนักเรียน 5 ช่อง ===== */
+
+.grade-a4-student-grid{
+  margin-top:13px;
+  display:grid;
+  grid-template-columns:
+    1fr 2fr 1fr .7fr 1.35fr;
+  gap:6px;
+}
+
+.grade-a4-student-grid > div{
+  min-width:0;
+  padding:7px 9px;
+  border:1px solid #dbe7f3;
+  border-radius:8px;
+  background:#f8fbff;
+}
+
+.grade-a4-student-grid span{
+  display:block;
+  margin-bottom:2px;
+  color:#718195;
+  font-size:9.5px;
+  font-weight:600;
+}
+
+.grade-a4-student-grid strong{
+  display:block;
+  overflow:hidden;
+  color:#17324a;
+  font-size:12px;
+  line-height:1.25;
+  font-weight:800;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+/* ===== หัวข้อผลการเรียน ===== */
+
+.grade-a4-section-title{
+  margin:10px 0 6px;
+  color:#17324a;
+  font-size:15px;
+  font-weight:900;
+}
+
+/* ===== ตารางคะแนน ===== */
+
+.grade-a4-table{
+  width:100% !important;
+  min-width:0 !important;
+  border-collapse:collapse !important;
+  table-layout:fixed !important;
+  font-size:9.2px !important;
+}
+
+.grade-a4-table th{
+  position:static !important;
+  padding:5px 3px !important;
+  border:1px solid #cbd9e7 !important;
+  background:#eaf2fb !important;
+  color:#17324a !important;
+  text-align:center !important;
+  vertical-align:middle !important;
+  font-size:9.5px !important;
+  line-height:1.25 !important;
+  font-weight:900 !important;
+  white-space:normal !important;
+}
+
+.grade-a4-table thead tr:first-child th{
+  background:#dfeefa !important;
+}
+
+.grade-a4-table td{
+  padding:4px 3px !important;
+  border:1px solid #dde6ef !important;
+  background:#ffffff !important;
+  color:#17324a !important;
+  vertical-align:middle !important;
+  font-size:9.2px !important;
+  line-height:1.25 !important;
+  overflow-wrap:anywhere;
+}
+
+.grade-a4-table td:not(:nth-child(2)):not(:nth-child(11)){
+  text-align:center;
+}
+
+.grade-a4-table td:nth-child(2),
+.grade-a4-table td:nth-child(11){
+  text-align:left;
+}
+
+.grade-a4-table td:nth-child(2){
+  font-weight:700;
+}
+
+/* ===== ประเภทรายวิชา ===== */
+
+.grade-a4-type{
+  display:inline-block;
+  padding:2px 4px;
+  border-radius:999px;
+  font-size:8.3px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.grade-a4-type.basic{
+  color:#1d4ed8;
+  background:#eff6ff;
+}
+
+.grade-a4-type.additional{
+  color:#b45309;
+  background:#fff7ed;
+}
+
+/* ===== สีเกรด ===== */
+
+.grade-a4-grade{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:24px;
+  padding:2px 4px;
+  border-radius:999px;
+  font-family:'Kanit',sans-serif;
+  font-size:9px;
+  font-weight:800;
+}
+
+.grade-a4-grade.pass{
+  color:#166534;
+  background:#dcfce7;
+}
+
+.grade-a4-grade.fail{
+  color:#b91c1c;
+  background:#fee2e2;
+}
+
+.grade-a4-grade.neutral{
+  color:#475569;
+  background:#f1f5f9;
+}
+
+/* ===== ส่วนสรุปและกราฟ ===== */
+
+.grade-a4-bottom-grid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns:
+    minmax(0,.95fr)
+    minmax(0,1.05fr);
+  gap:10px;
+  align-items:start;
+}
+
+.grade-a4-summary-box,
+.grade-a4-radar-box{
+  min-width:0;
+  overflow:hidden;
+  border:1px solid #dbe5ef;
+  border-radius:10px;
+  background:#ffffff;
+}
+
+.grade-a4-box-title{
+  padding:7px 9px;
+  color:#17324a;
+  background:#eef4fb;
+  border-bottom:1px solid #dbe5ef;
+  font-size:11.5px;
+  line-height:1.3;
+  font-weight:900;
+}
+
+/* ===== ตารางสรุป GPA ===== */
+
+.grade-a4-summary-table{
+  width:100% !important;
+  min-width:0 !important;
+  border-collapse:collapse !important;
+  table-layout:fixed !important;
+  font-size:9px !important;
+}
+
+.grade-a4-summary-table th{
+  position:static !important;
+  padding:5px 4px !important;
+  border:1px solid #dbe5ef !important;
+  background:#eaf2fb !important;
+  color:#17324a !important;
+  text-align:center !important;
+  font-size:9px !important;
+  line-height:1.25 !important;
+  font-weight:900 !important;
+  white-space:normal !important;
+}
+
+.grade-a4-summary-table td{
+  padding:5px !important;
+  border:1px solid #e3ebf3 !important;
+  background:#ffffff !important;
+  color:#17324a !important;
+  font-size:9px !important;
+  line-height:1.25 !important;
+}
+
+.grade-a4-summary-table td:first-child{
+  text-align:left !important;
+  font-weight:700;
+}
+
+.grade-a4-summary-table td:not(:first-child){
+  text-align:center !important;
+  font-weight:800;
+}
+
+.grade-a4-gpa-row td{
+  background:#f8fbff !important;
+}
+
+#a4Gpa{
+  color:#1d4ed8 !important;
+  font-size:13px !important;
+  font-weight:900 !important;
+}
+
+/* ===== กราฟเรดาร์ ===== */
+
+.grade-a4-radar-subtitle{
+  padding:5px 8px 0;
+  color:#718195;
+  font-size:8.5px;
+  line-height:1.3;
+  font-weight:600;
+}
+
+.grade-a4-radar-chart-wrap{
+  position:relative;
+  width:100%;
+  height:170px;
+  padding:4px 7px;
+}
+
+.grade-a4-radar-chart-wrap canvas{
+  display:block;
+  width:100% !important;
+  height:100% !important;
+}
+
+.grade-a4-radar-empty{
+  margin:7px;
+  padding:12px;
+  border:1px dashed #cbd5e1;
+  border-radius:8px;
+  color:#64748b;
+  background:#f8fafc;
+  text-align:center;
+  font-size:8px;
+  font-weight:700;
+}
+
+/* รายการคะแนนเฉลี่ยใต้กราฟ */
+
+.grade-a4-radar-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:4px;
+  padding:0 7px 7px;
+}
+
+.grade-a4-radar-list .radar-score-item{
+  min-width:0;
+  min-height:23px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:4px;
+  padding:3px 5px;
+  border:1px solid #d9e8ff;
+  border-radius:6px;
+  background:#f8fbff;
+}
+
+.grade-a4-radar-list .radar-score-name{
+  min-width:0;
+  overflow:hidden;
+  color:#17324a;
+  font-size:7.6px;
+  font-weight:800;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.grade-a4-radar-list .radar-score-value{
+  min-width:27px;
+  padding:2px 4px;
+  border-radius:999px;
+  color:#1d4ed8;
+  background:#eaf2ff;
+  font-size:8.5px;
+  font-weight:900;
+  text-align:center;
+}
+
+/* ===== Mobile Toolbar ===== */
+
+@media (max-width:620px){
+
+  .grade-a4-toolbar{
+    min-height:54px;
+    padding:7px 10px;
+  }
+
+  .grade-a4-toolbar-title{
+    font-size:12px;
+    line-height:1.35;
+  }
+
+  .grade-a4-toolbar-actions{
+    gap:5px;
+  }
+
+  .grade-a4-capture-btn,
+  .grade-a4-close-btn{
+    min-height:38px;
+    padding:0 10px;
+    font-size:11px;
+  }
+
+  .grade-a4-stage{
+    padding:8px;
+  }
+
+}
+
+/* ===== Capture Mode ===== */
+
+.grade-a4-preview.capture-clean
+.grade-a4-stage{
+  padding:8px;
+  background:#e9eef5;
+  align-items:flex-start;
+  justify-content:center;
+}
+
+.grade-a4-preview.capture-clean
+.grade-a4-scale-box{
+  margin-left:auto;
+  margin-right:auto;
+}
+
+
+
+
 </style>
 </head>
 <body>
@@ -751,7 +1538,210 @@
     <nav id="bottomNav" class="bottom-nav hidden"><div class="nav-grid"><button id="navHomeBtn" class="nav-btn active" type="button"><span class="nav-icon">🏠</span><span>หน้าแรก</span></button><button id="navRetestBtn" class="nav-btn" type="button"><span class="nav-icon">📝</span><span>แก้ตัว</span></button><button id="navAdviserBtn" class="nav-btn" type="button"><span class="nav-icon">🎓</span><span>ดูเกรด</span></button><button id="navBookingBtn" class="nav-btn" type="button"><span class="nav-icon">🗓️</span><span>จองคาบ</span></button></div></nav>
   </div>
 
-  <div id="gradeDetailView" class="detail-view"><div class="detail-shell"><div class="detail-hero"></div><div class="detail-content"><button id="closeGradeDetailBtn" class="back-btn" type="button">← กลับ</button><div style="color:#fff;margin-top:16px;"><h1 id="detailStudentName" class="page-title">-</h1><p id="detailStudentMeta" class="page-sub">-</p></div><div class="summary-grid"><div class="summary-mini summary-blue"><div class="summary-mini-label">หน่วยกิต</div><div id="detailTotalCredit" class="summary-mini-value">0.0</div></div><div class="summary-mini summary-green"><div class="summary-mini-label">ได้</div><div id="detailEarnedCredit" class="summary-mini-value">0.0</div></div><div class="summary-mini summary-gray"><div class="summary-mini-label">GPA</div><div id="detailGpa" class="summary-mini-value">0.00</div></div></div><div id="gradeDetailList" class="list" style="margin-top:14px;"><div class="card empty">กำลังโหลด...</div></div></div></div></div>
+  <div id="gradeDetailView" class="detail-view"><div class="detail-shell"><div class="detail-hero"></div><div class="detail-content"><button id="closeGradeDetailBtn" class="back-btn" type="button">← กลับ</button><div style="color:#fff;margin-top:16px;"><h1 id="detailStudentName" class="page-title">-</h1><p id="detailStudentMeta" class="page-sub">-</p></div><div class="summary-grid"><div class="summary-mini summary-blue"><div class="summary-mini-label">หน่วยกิต</div><div id="detailTotalCredit" class="summary-mini-value">0.0</div></div><div class="summary-mini summary-green"><div class="summary-mini-label">ได้</div><div id="detailEarnedCredit" class="summary-mini-value">0.0</div></div><div class="summary-mini summary-gray"><div class="summary-mini-label">GPA</div><div id="detailGpa" class="summary-mini-value">0.00</div></div></div>
+  <!-- ปุ่มเปิดตารางผลการเรียนเต็มจอ -->
+<button
+  id="openGradeTableBtn"
+  type="button"
+  class="btn btn-primary btn-block"
+  style="margin-top:16px;width:100%;"
+>
+  ▦ ดูตารางผลการเรียนเต็มจอ
+</button>
+  <div id="gradeDetailList" class="list" style="margin-top:14px;"><div class="card empty">กำลังโหลด...</div></div></div></div></div>
+ 
+<!-- ===== TeacherPR : Student Grade A4 Preview ===== -->
+
+<div id="gradeTableFullView"
+     class="grade-a4-preview hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-label="ผลการเรียนรายภาคเรียน"
+     aria-hidden="true">
+
+  <!-- แถบเครื่องมือ -->
+  <div class="grade-a4-toolbar">
+    <div class="grade-a4-toolbar-title">
+      ตัวอย่างสำหรับบันทึกภาพหน้าจอ
+    </div>
+
+    <div class="grade-a4-toolbar-actions">
+      <button id="btnHideGradeA4Tools"
+              class="grade-a4-capture-btn"
+              type="button">
+        📷 ซ่อนเครื่องมือ
+      </button>
+
+      <button id="closeGradeTableBtn"
+              class="grade-a4-close-btn"
+              type="button">
+        ✕ ปิด
+      </button>
+    </div>
+  </div>
+
+  <!-- พื้นที่แสดงกระดาษ -->
+  <div class="grade-a4-stage">
+    <div id="gradeA4ScaleBox"
+         class="grade-a4-scale-box">
+
+      <div id="gradeA4Sheet" class="grade-a4-sheet">
+
+        <!-- หัวรายงาน -->
+        <div class="grade-a4-header">
+          <div class="grade-a4-school">
+            โรงเรียนท่าใหม่ “พูลสวัสดิ์ราษฎร์นุกูล”
+          </div>
+          <div class="grade-a4-title">
+            ผลการเรียนรายภาคเรียน
+          </div>
+
+          <div class="grade-a4-student-grid">
+            <div>
+              <span>เลขประจำตัว</span>
+              <strong id="a4StudentCode">-</strong>
+            </div>
+            <div class="grade-a4-student-name">
+              <span>ชื่อ - สกุล</span>
+              <strong id="a4StudentName">-</strong>
+            </div>
+            <div>
+              <span>ชั้น / ห้อง</span>
+              <strong id="a4ClassLevel">-</strong>
+            </div>
+            <div>
+              <span>เลขที่</span>
+              <strong id="a4StudentNo">-</strong>
+            </div>
+            <div>
+              <span>ภาคเรียน / ปีการศึกษา</span>
+              <strong id="a4YearTerm">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- ตารางคะแนน -->
+        <div class="grade-a4-section-title">
+          ผลการเรียนรายวิชา
+        </div>
+
+        <table class="grade-a4-table">
+          <colgroup>
+            <col style="width:8%">
+            <col style="width:23%">
+            <col style="width:8%">
+            <col style="width:6%">
+            <col style="width:6%">
+            <col style="width:6%">
+            <col style="width:6%">
+            <col style="width:6%">
+            <col style="width:6%">
+            <col style="width:7%">
+            <col style="width:18%">
+          </colgroup>
+
+          <thead>
+            <tr>
+              <th rowspan="2">รหัสวิชา</th>
+              <th rowspan="2">รายวิชา</th>
+              <th rowspan="2">ประเภท</th>
+              <th rowspan="2">หน่วยกิต</th>
+              <th colspan="6">ประเมินผลสัมฤทธิ์</th>
+              <th rowspan="2">ครูผู้สอน</th>
+            </tr>
+            <tr>
+              <th>หน่วย</th>
+              <th>กลาง</th>
+              <th>ปลาย</th>
+              <th>รวม</th>
+              <th>เกรด</th>
+              <th>แก้ตัว</th>
+            </tr>
+          </thead>
+
+          <tbody id="gradeA4TableBody">
+            <tr>
+              <td colspan="11">ยังไม่มีข้อมูล</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- สรุปผลการเรียนและกราฟ -->
+        <div class="grade-a4-bottom-grid">
+
+          <div class="grade-a4-summary-box">
+            <div class="grade-a4-box-title">
+              สรุปผลการเรียนรายภาคเรียน
+            </div>
+
+            <table class="grade-a4-summary-table">
+              <thead>
+                <tr>
+                  <th rowspan="2">สรุปผลการประเมิน</th>
+                  <th colspan="2">ผลการเรียน</th>
+                </tr>
+                <tr>
+                  <th>ที่เรียน</th>
+                  <th>ที่ได้</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr>
+                  <td>จำนวนหน่วยกิต/น้ำหนักวิชาพื้นฐาน</td>
+                  <td id="a4BasicLearned">0.0</td>
+                  <td id="a4BasicEarned">0.0</td>
+                </tr>
+                <tr>
+                  <td>จำนวนหน่วยกิต/น้ำหนักวิชาเพิ่มเติม</td>
+                  <td id="a4AdditionalLearned">0.0</td>
+                  <td id="a4AdditionalEarned">0.0</td>
+                </tr>
+                <tr>
+                  <td>รวมจำนวนหน่วยกิต/น้ำหนัก</td>
+                  <td id="a4TotalLearned">0.0</td>
+                  <td id="a4TotalEarned">0.0</td>
+                </tr>
+                <tr class="grade-a4-gpa-row">
+                  <td>ระดับผลการเรียนเฉลี่ย (GPA)</td>
+                  <td id="a4Gpa" colspan="2">0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grade-a4-radar-box">
+            <div class="grade-a4-box-title">
+              ภาพรวมเกรดเฉลี่ยรายกลุ่มสาระ
+            </div>
+
+            <div class="grade-a4-radar-subtitle">
+              เกรดเฉลี่ยถ่วงน้ำหนักตามหน่วยกิต
+            </div>
+
+            <div class="grade-a4-radar-chart-wrap">
+              <canvas id="gradeA4RadarChart"></canvas>
+            </div>
+
+            <div id="gradeA4RadarEmpty"
+                 class="grade-a4-radar-empty hidden">
+              ไม่พบข้อมูลสำหรับสร้างกราฟ
+            </div>
+
+            <div id="gradeA4RadarList"
+                 class="grade-a4-radar-list">
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- END TeacherPR Student Grade A4 Preview -->
+
 
   <div id="bookingReserveModal" class="modal">
   <div class="modal-card booking-calendar-modal-card">
@@ -4304,7 +5294,10 @@ async function fetchStudentGrades(
     function getNumericGradeForGpa(grade){const g=normalizeGradeValue(grade); const map={'4':4,'3.5':3.5,'3':3,'2.5':2.5,'2':2,'1.5':1.5,'1':1,'0':0}; return Object.prototype.hasOwnProperty.call(map,g)?map[g]:null;}
     function buildGradeSummary(rows){let total=0,earned=0,point=0,gpaCredit=0; rows.forEach(r=>{const credit=safeNum(r.credit)||0; const eff=normalizeGradeValue(r.retest_grade_code||r.grade_code); if(credit){total+=credit; if(isPassingGrade(eff))earned+=credit; const ng=getNumericGradeForGpa(eff); if(ng!==null){point+=ng*credit; gpaCredit+=credit;}}}); return {total,earned,gpa:gpaCredit?point/gpaCredit:0};}
     async function openStudentDetail(student,ctx){try{el('gradeDetailView').classList.add('show'); el('detailStudentName').textContent=safeText(student.raw_full_name,'-'); el('detailStudentMeta').textContent=`${safeText(student.sid,'-')} • ${safeText(ctx.label,'')}`; el('gradeDetailList').innerHTML='<div class="card empty">กำลังโหลดผลการเรียน...</div>'; const rows=await fetchStudentGrades(student.id,ctx.academic_year,ctx.term); const summary=buildGradeSummary(rows); el('detailTotalCredit').textContent=summary.total.toFixed(1); el('detailEarnedCredit').textContent=summary.earned.toFixed(1); el('detailGpa').textContent =
-  (Math.trunc(summary.gpa * 100) / 100).toFixed(2); renderGradeDetailRows(rows);}catch(err){el('gradeDetailList').innerHTML=`<div class="card empty">${escapeHtml(err.message||'โหลดผลการเรียนไม่สำเร็จ')}</div>`;}}
+  (Math.trunc(summary.gpa * 100) / 100).toFixed(2); 
+  renderGradeDetailRows(rows);
+
+fillGradeA4Report(student, ctx, rows);}catch(err){el('gradeDetailList').innerHTML=`<div class="card empty">${escapeHtml(err.message||'โหลดผลการเรียนไม่สำเร็จ')}</div>`;}}
     function closeGradeDetail(){el('gradeDetailView').classList.remove('show');}
 function renderGradeDetailRows(rows){
   const list = el('gradeDetailList');
@@ -4342,6 +5335,500 @@ function renderGradeDetailRows(rows){
     `;
   }).join('');
 }
+
+
+/* =====================================================
+   TeacherPR : Fill Grade A4 Report
+   ใช้ข้อมูลที่โหลดมาแล้ว ไม่เรียก Supabase ซ้ำ
+   ===================================================== */
+
+function fillGradeA4Report(student, ctx, rows){
+
+  const gradeRows = Array.isArray(rows) ? rows : [];
+  const firstRow = gradeRows[0] || {};
+
+  // เก็บข้อมูลไว้ใช้สร้างกราฟในขั้นตอนต่อไป
+  state.gradeA4Rows = gradeRows;
+  state.gradeA4Student = student;
+  state.gradeA4Ctx = ctx;
+
+  // ===== 1. ข้อมูลนักเรียน =====
+
+  const classLevel =
+    safeText(firstRow.class_level, '') ||
+    safeText(ctx.label, '').match(/ม\.[1-6]/)?.[0] ||
+    safeText(student.computed_class_level, '-');
+
+  const room =
+    safeText(firstRow.room, '') ||
+    safeText(student.current_room, '-');
+
+  const studentNo =
+    safeText(firstRow.student_no, '') ||
+    safeText(student.current_no, '-');
+
+  const year =
+    ctx.academic_year ?? firstRow.academic_year ?? '-';
+
+  const term =
+    ctx.term ?? firstRow.term ?? '-';
+
+  el('a4StudentCode').textContent =
+    safeText(student.sid, '-');
+
+  el('a4StudentName').textContent =
+    safeText(student.raw_full_name, '-');
+
+  el('a4ClassLevel').textContent =
+    `${classLevel}/${room}`;
+
+  el('a4StudentNo').textContent =
+    studentNo;
+
+  el('a4YearTerm').textContent =
+    `${term} / ${year}`;
+
+  // ===== 2. ตารางคะแนน =====
+
+  function scoreText(value){
+    return value === null ||
+           value === undefined ||
+           value === ''
+      ? '-'
+      : String(value);
+  }
+
+  function gradeBadge(grade){
+
+    const g = normalizeGradeValue(grade);
+
+    const cls = isRiskGrade(g)
+      ? 'fail'
+      : isPassingGrade(g)
+        ? 'pass'
+        : 'neutral';
+
+    return `
+      <span class="grade-a4-grade ${cls}">
+        ${escapeHtml(g || '-')}
+      </span>
+    `;
+  }
+
+  const tbody = el('gradeA4TableBody');
+
+  if(!gradeRows.length){
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="11">
+          ยังไม่พบข้อมูลผลการเรียน
+        </td>
+      </tr>
+    `;
+
+  }else{
+
+    tbody.innerHTML = gradeRows.map(row => {
+
+      const type =
+        normalizeSubjectTypeKey(row);
+
+      const typeClass =
+        type === 'พื้นฐาน'
+          ? 'basic'
+          : type === 'เพิ่มเติม'
+            ? 'additional'
+            : '';
+
+      const credit =
+        (safeNum(row.credit) || 0).toFixed(1);
+
+      return `
+        <tr>
+          <td>${escapeHtml(scoreText(row.subject_code))}</td>
+
+          <td>${escapeHtml(scoreText(row.subject_name))}</td>
+
+          <td>
+            <span class="grade-a4-type ${typeClass}">
+              ${escapeHtml(type || '-')}
+            </span>
+          </td>
+
+          <td>${credit}</td>
+
+          <td>${escapeHtml(scoreText(row.study_unit_score))}</td>
+
+          <td>${escapeHtml(scoreText(row.midterm_score))}</td>
+
+          <td>${escapeHtml(scoreText(row.final_score))}</td>
+
+          <td>${escapeHtml(scoreText(row.total_score))}</td>
+
+          <td>${gradeBadge(row.grade_code)}</td>
+
+          <td>${gradeBadge(row.retest_grade_code)}</td>
+
+          <td>${escapeHtml(scoreText(row.teacher_name))}</td>
+        </tr>
+      `;
+
+    }).join('');
+
+  }
+
+  // ===== 3. สรุปหน่วยกิต =====
+
+  const basicRows = gradeRows.filter(
+    row => normalizeSubjectTypeKey(row) === 'พื้นฐาน'
+  );
+
+  const additionalRows = gradeRows.filter(
+    row => normalizeSubjectTypeKey(row) === 'เพิ่มเติม'
+  );
+
+  const basic = buildGradeSummary(basicRows);
+  const additional = buildGradeSummary(additionalRows);
+  const total = buildGradeSummary(gradeRows);
+
+  el('a4BasicLearned').textContent =
+    basic.total.toFixed(1);
+
+  el('a4BasicEarned').textContent =
+    basic.earned.toFixed(1);
+
+  el('a4AdditionalLearned').textContent =
+    additional.total.toFixed(1);
+
+  el('a4AdditionalEarned').textContent =
+    additional.earned.toFixed(1);
+
+  el('a4TotalLearned').textContent =
+    total.total.toFixed(1);
+
+  el('a4TotalEarned').textContent =
+    total.earned.toFixed(1);
+
+  // ใช้ GPA ที่แสดงอยู่ในหน้าเดิม
+  // เพื่อให้ตรงกันและใช้หลักการตัดทศนิยมเดิม
+  el('a4Gpa').textContent =
+    (Math.trunc(total.gpa * 100) / 100).toFixed(2);
+
+}
+
+
+/* =====================================================
+   TeacherPR : A4 Learning Area Radar
+   แสดงเกรดเฉลี่ยรายกลุ่มสาระเหมือน StudentPR
+   ===================================================== */
+
+const TEACHER_A4_RADAR_GROUPS = {
+  'ท': 'ภาษาไทย',
+  'ค': 'คณิตศาสตร์',
+  'ว': 'วิทยาศาสตร์',
+  'ส': 'สังคมศึกษา',
+  'พ': 'สุขศึกษาและพลศึกษา',
+  'ศ': 'ศิลปะ',
+  'ง': 'การงานอาชีพ',
+  'อ': 'ภาษาอังกฤษ',
+  'จ': 'ภาษาจีน',
+  'ญ': 'ภาษาญี่ปุ่น',
+  'ต': 'ภาษาเกาหลี',
+  'ข': 'ภาษาเขมร'
+};
+
+let teacherA4RadarChart = null;
+let teacherA4ChartLoader = null;
+let teacherA4RadarRenderId = 0;
+
+/* โหลด Chart.js เมื่อจำเป็นเท่านั้น */
+
+function loadTeacherA4ChartJs(){
+
+  if(window.Chart){
+    return Promise.resolve(window.Chart);
+  }
+
+  if(!teacherA4ChartLoader){
+
+    teacherA4ChartLoader = new Promise((resolve, reject) => {
+
+      const script = document.createElement('script');
+
+      script.src =
+        'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+
+      script.onload = () => {
+        if(window.Chart){
+          resolve(window.Chart);
+        }else{
+          reject(new Error('ไม่สามารถเริ่มต้น Chart.js'));
+        }
+      };
+
+      script.onerror = () => {
+        reject(new Error('ไม่สามารถโหลด Chart.js'));
+      };
+
+      document.head.appendChild(script);
+
+    }).catch(error => {
+      teacherA4ChartLoader = null;
+      throw error;
+    });
+
+  }
+
+  return teacherA4ChartLoader;
+}
+
+/* คำนวณเกรดเฉลี่ยรายกลุ่มสาระ */
+
+function buildTeacherA4RadarData(rows){
+
+  const groups = new Map();
+
+  (rows || []).forEach(row => {
+
+    const code = safeText(row.subject_code, '').trim();
+    const prefix = code.charAt(0);
+
+    const name = TEACHER_A4_RADAR_GROUPS[prefix];
+
+    if(!name) return;
+
+    const credit = safeNum(row.credit) || 0;
+
+    if(credit <= 0) return;
+
+    // ใช้เกรดแก้ตัวที่อนุมัติแล้ว หากมี
+    const effectiveGrade = normalizeGradeValue(
+      row.retest_grade_code || row.grade_code
+    );
+
+    const grade = getNumericGradeForGpa(effectiveGrade);
+
+    if(grade === null) return;
+
+    if(!groups.has(name)){
+      groups.set(name, {
+        name,
+        weighted: 0,
+        credits: 0
+      });
+    }
+
+    const item = groups.get(name);
+
+    item.weighted += grade * credit;
+    item.credits += credit;
+
+  });
+
+  const order = Object.values(TEACHER_A4_RADAR_GROUPS);
+
+  return [...groups.values()]
+    .map(item => ({
+      name: item.name,
+      average: item.credits > 0
+        ? item.weighted / item.credits
+        : 0
+    }))
+    .sort((a, b) =>
+      order.indexOf(a.name) - order.indexOf(b.name)
+    );
+}
+
+/* แสดงกราฟและรายการเกรดเฉลี่ย */
+
+async function renderTeacherA4Radar(){
+
+  const renderId = ++teacherA4RadarRenderId;
+
+  const canvas = el('gradeA4RadarChart');
+  const empty = el('gradeA4RadarEmpty');
+  const list = el('gradeA4RadarList');
+  const preview = el('gradeTableFullView');
+
+  if(!canvas || !empty || !list || !preview){
+    return;
+  }
+
+  if(preview.classList.contains('hidden')){
+    return;
+  }
+
+  const rows = Array.isArray(state.gradeA4Rows)
+    ? state.gradeA4Rows
+    : [];
+
+  const data = buildTeacherA4RadarData(rows);
+
+  if(teacherA4RadarChart){
+    teacherA4RadarChart.destroy();
+    teacherA4RadarChart = null;
+  }
+
+  if(!data.length){
+    canvas.classList.add('hidden');
+    empty.textContent = 'ไม่พบข้อมูลสำหรับสร้างกราฟ';
+    empty.classList.remove('hidden');
+    list.innerHTML = '';
+    return;
+  }
+
+  canvas.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  // ตัดทศนิยม 2 ตำแหน่งตามรูปแบบ GPA
+  const floor2 = value =>
+    (Math.floor((value + 1e-9) * 100) / 100).toFixed(2);
+
+  list.innerHTML = data.map(item => `
+    <div class="radar-score-item">
+      <div class="radar-score-name"
+           title="${escapeHtml(item.name)}">
+        ${escapeHtml(item.name)}
+      </div>
+      <div class="radar-score-value">
+        ${floor2(item.average)}
+      </div>
+    </div>
+  `).join('');
+
+  try{
+
+    const ChartClass = await loadTeacherA4ChartJs();
+
+    // ป้องกันข้อมูลเก่ามาทับกราฟใหม่
+    if(
+      renderId !== teacherA4RadarRenderId ||
+      preview.classList.contains('hidden')
+    ){
+      return;
+    }
+
+    teacherA4RadarChart = new ChartClass(canvas, {
+      type: 'radar',
+
+      data: {
+        labels: data.map(item => item.name),
+
+        datasets: [{
+          label: 'เกรดเฉลี่ย',
+          data: data.map(item =>
+            Number(item.average.toFixed(2))
+          ),
+
+          fill: true,
+          backgroundColor: 'rgba(47,109,224,.18)',
+          borderColor: '#2f6de0',
+          pointBackgroundColor: '#2f6de0',
+          pointBorderColor: '#ffffff',
+          borderWidth: 2,
+          pointRadius: 3
+        }]
+      },
+
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        animation: false,
+
+        plugins: {
+          legend: {
+            display: false
+          },
+
+          tooltip: {
+            callbacks: {
+              label: context =>
+                `เกรดเฉลี่ย ${Number(context.raw || 0).toFixed(2)}`
+            }
+          }
+        },
+
+        scales: {
+          r: {
+            min: 0,
+            max: 4,
+
+            ticks: {
+              stepSize: 1,
+              backdropColor: 'transparent',
+              color: '#64748b',
+              font: {
+                family: 'Kanit',
+                size: 9,
+                weight: '700'
+              }
+            },
+
+            pointLabels: {
+              color: '#17324a',
+              font: {
+                family: 'Kanit',
+                size: 10,
+                weight: '800'
+              }
+            },
+
+            grid: {
+              color: '#dbe7f3'
+            },
+
+            angleLines: {
+              color: '#dbe7f3'
+            }
+          }
+        }
+      }
+    });
+
+  }catch(error){
+
+    console.error('Grade A4 Radar Error:', error);
+
+    canvas.classList.add('hidden');
+    empty.textContent =
+      'ไม่สามารถแสดงกราฟได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+    empty.classList.remove('hidden');
+
+  }
+}
+
+/* สร้างกราฟหลังเปิดหน้ารายงาน */
+
+el('openGradeTableBtn')?.addEventListener('click', () => {
+  requestAnimationFrame(() => {
+    renderTeacherA4Radar();
+  });
+});
+
+/* อัปเดตกราฟหากข้อมูลรายวิชาโหลดเสร็จภายหลัง */
+
+const teacherA4TableBody = el('gradeA4TableBody');
+
+if(teacherA4TableBody){
+
+  const gradeA4Observer = new MutationObserver(() => {
+
+    if(!el('gradeTableFullView')?.classList.contains('hidden')){
+      requestAnimationFrame(() => {
+        renderTeacherA4Radar();
+      });
+    }
+
+  });
+
+  gradeA4Observer.observe(teacherA4TableBody, {
+    childList: true
+  });
+}
+
+
 
     function getBookingFilters(){return {academic_year:safeNum(el('bookingYear').value),term:safeNum(el('bookingTerm').value),class_level:safeText(el('bookingClassLevel').value,''),room:safeText(el('bookingRoom').value,'')};}
     function updateBookingSummary(){const f=getBookingFilters(); el('bookingSummaryClassRoom').textContent=f.class_level&&f.room?`${f.class_level}/${f.room}`:'-'; el('bookingSummarySlotCount').textContent=state.bookingSlots.length; el('bookingSummaryMineCount').textContent=state.myReservations.length;}
@@ -5376,6 +6863,221 @@ el('adviserKeyword').addEventListener('input', () => {
 
 el('loadAdviserStudentsBtn').addEventListener('click', loadAdviserStudents); 
       el('closeGradeDetailBtn').addEventListener('click',closeGradeDetail);
+      
+/* =====================================================
+   TeacherPR : Grade A4 Preview Controls
+   ===================================================== */
+
+const gradeA4View = el('gradeTableFullView');
+const gradeA4Stage = gradeA4View.querySelector('.grade-a4-stage');
+const gradeA4ScaleBox = el('gradeA4ScaleBox');
+const gradeA4Sheet = el('gradeA4Sheet');
+
+/* ปรับขนาดกระดาษให้พอดีหน้าจอ */
+
+
+/* =====================================================
+   ปรับกระดาษ A4 ให้พอดีทั้งความกว้างและความสูง
+   TeacherPR Mobile - StudentPR Style
+   ===================================================== */
+
+function fitGradeA4Sheet(){
+
+  if(gradeA4View.classList.contains('hidden')){
+    return;
+  }
+
+  const paperWidth = 794;
+  const paperHeight = 1123;
+
+  // ขนาดพื้นที่แสดงรายงานจริง
+  const stageStyle = window.getComputedStyle(
+    gradeA4Stage
+  );
+
+  const paddingX =
+    parseFloat(stageStyle.paddingLeft || 0) +
+    parseFloat(stageStyle.paddingRight || 0);
+
+  const paddingY =
+    parseFloat(stageStyle.paddingTop || 0) +
+    parseFloat(stageStyle.paddingBottom || 0);
+
+  const availableWidth = Math.max(
+    1,
+    gradeA4Stage.clientWidth - paddingX
+  );
+
+  const availableHeight = Math.max(
+    1,
+    gradeA4Stage.clientHeight - paddingY
+  );
+
+  // เลือกอัตราย่อที่ทำให้กระดาษทั้งแผ่นอยู่ในจอ
+  const scaleX = availableWidth / paperWidth;
+  const scaleY = availableHeight / paperHeight;
+
+  const scale = Math.min(
+    1,
+    scaleX,
+    scaleY
+  );
+
+  // ย่อเฉพาะภาพที่แสดง ไม่เปลี่ยนขนาดต้นฉบับ
+  gradeA4Sheet.style.transform =
+    `scale(${scale})`;
+
+  // ปรับพื้นที่ครอบกระดาษให้ตรงกับขนาดที่ย่อ
+  gradeA4ScaleBox.style.width =
+    `${paperWidth * scale}px`;
+
+  gradeA4ScaleBox.style.height =
+    `${paperHeight * scale}px`;
+
+  // จัดกระดาษให้อยู่ตรงกลาง
+  gradeA4ScaleBox.style.marginLeft = 'auto';
+  gradeA4ScaleBox.style.marginRight = 'auto';
+
+}
+
+
+/* เปิดรายงาน A4 */
+
+function openGradeA4Preview(){
+
+  if(!el('gradeDetailView').classList.contains('show')){
+    return;
+  }
+
+  /* นำข้อมูลพื้นฐานจากหน้ารายละเอียดเดิม */
+
+  el('a4StudentName').textContent =
+    el('detailStudentName').textContent;
+
+  const studentMeta =
+    el('detailStudentMeta').textContent || '';
+
+  el('a4StudentCode').textContent =
+    studentMeta.split('•')[0].trim() || '-';
+
+  el('a4TotalLearned').textContent =
+    el('detailTotalCredit').textContent;
+
+  el('a4TotalEarned').textContent =
+    el('detailEarnedCredit').textContent;
+
+  el('a4Gpa').textContent =
+    el('detailGpa').textContent;
+
+  gradeA4View.classList.remove(
+    'hidden',
+    'capture-clean'
+  );
+
+  gradeA4View.setAttribute(
+    'aria-hidden',
+    'false'
+  );
+
+  document.body.classList.add('grade-a4-open');
+
+  gradeA4Stage.scrollTop = 0;
+
+  requestAnimationFrame(fitGradeA4Sheet);
+
+}
+
+/* ปิดรายงาน A4 */
+
+function closeGradeA4Preview(){
+
+  gradeA4View.classList.add('hidden');
+
+  gradeA4View.classList.remove('capture-clean');
+
+  gradeA4View.setAttribute(
+    'aria-hidden',
+    'true'
+  );
+
+  document.body.classList.remove('grade-a4-open');
+
+}
+
+/* ปุ่มเปิดรายงาน */
+
+el('openGradeTableBtn').addEventListener(
+  'click',
+  openGradeA4Preview
+);
+
+/* ปุ่มปิดรายงาน */
+
+el('closeGradeTableBtn').addEventListener(
+  'click',
+  closeGradeA4Preview
+);
+
+/* ซ่อนแถบเครื่องมือเพื่อบันทึกภาพ */
+
+
+/* ==========================================
+   ซ่อนเครื่องมือสำหรับบันทึกภาพหน้าจอ
+   ========================================== */
+
+el('btnHideGradeA4Tools').addEventListener(
+  'click',
+  (event) => {
+
+    // ป้องกันการคลิกส่งต่อไปยังรายงาน
+    event.stopPropagation();
+
+    // ซ่อนแถบเครื่องมือ
+    gradeA4View.classList.add('capture-clean');
+
+    // ปรับขนาดกระดาษใหม่
+    requestAnimationFrame(() => {
+      fitGradeA4Sheet();
+    });
+
+  }
+);
+
+
+/* แตะหน้ารายงานเพื่อแสดงเครื่องมือกลับมา */
+
+gradeA4View.addEventListener('click', () => {
+
+  if(!gradeA4View.classList.contains('capture-clean')){
+    return;
+  }
+
+  gradeA4View.classList.remove('capture-clean');
+
+  requestAnimationFrame(fitGradeA4Sheet);
+
+});
+
+/* ปรับขนาดใหม่เมื่อหมุนมือถือหรือเปลี่ยนขนาดจอ */
+
+window.addEventListener(
+  'resize',
+  fitGradeA4Sheet
+);
+
+/* ปุ่ม Escape สำหรับคอมพิวเตอร์ */
+
+document.addEventListener('keydown', event => {
+
+  if(
+    event.key === 'Escape' &&
+    !gradeA4View.classList.contains('hidden')
+  ){
+    closeGradeA4Preview();
+  }
+
+});
+
       el('bookingSearchTabBtn').addEventListener('click',()=>setBookingSubTab('search')); el('bookingMineTabBtn').addEventListener('click',()=>setBookingSubTab('mine')); el('loadBookingSlotsBtn').addEventListener('click',loadBookingSlots); el('loadMyBookingBtn').addEventListener('click',()=>loadMyReservations(true)); el('selectAllMyBookingPrint').addEventListener('change',e=>bookingToggleSelectAllMy(e.target.checked)); el('printMyBookingSelectedBtn').addEventListener('click',printSelectedMyReservations); el('cancelReserveBtn').addEventListener('click',closeReserveModal); el('confirmReserveBtn').addEventListener('click',confirmReserve);
       el('reservePrevMonthBtn').addEventListener('click', () => bookingMoveReserveMonth(-1));
       el('reserveNextMonthBtn').addEventListener('click', () => bookingMoveReserveMonth(1));
