@@ -1377,6 +1377,45 @@ body.grade-a4-open{
 }
 
 
+/* ==========================================
+   Grade A4 - iPhone Safe Area Fix
+   ป้องกันปุ่มปิดติดขอบบน / รอยบาก iPhone
+   ========================================== */
+
+.grade-a4-preview .grade-a4-toolbar{
+  padding-top:
+    calc(12px + env(safe-area-inset-top, 0px));
+
+  padding-bottom:12px;
+
+  padding-left:
+    max(12px, env(safe-area-inset-left, 0px));
+
+  padding-right:
+    max(12px, env(safe-area-inset-right, 0px));
+}
+
+/* สำหรับมือถือ */
+@media (max-width:620px){
+
+  .grade-a4-preview .grade-a4-toolbar{
+    min-height:58px;
+
+    padding-top:
+      calc(14px + env(safe-area-inset-top, 0px));
+
+    padding-bottom:12px;
+  }
+
+  .grade-a4-preview .grade-a4-close-btn,
+  .grade-a4-preview .grade-a4-capture-btn{
+    min-height:44px;
+  }
+
+}
+
+
+
 
 
 </style>
