@@ -7186,6 +7186,14 @@ async function init(){
 }
     document.addEventListener('DOMContentLoaded',init);
     if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(()=>console.log('Teacher Mobile service worker registered')).catch(err=>console.warn('Service worker registration failed:',err));});}
+
+
   </script>
+
+  <script
+  type="module"
+  src="./modules/registration-check.js?v=2569-2-1">
+</script>
+
 </body>
 </html>
