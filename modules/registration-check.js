@@ -17,7 +17,7 @@ const CONFIG = Object.freeze({
   academicYear: 2569,
   term: 2,
   // ใส่ URL หลังทำ API ที่ตรวจสิทธิ์แล้วเท่านั้น (เช่น Supabase Edge Function)
-  apiUrl: ''
+  apiUrl: 'https://jiorecubzlmfhwalhrsz.supabase.co/functions/v1/teacher-registration-check'
 });
 
 const id = x => document.getElementById(x);
