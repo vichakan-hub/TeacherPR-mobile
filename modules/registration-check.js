@@ -115,6 +115,41 @@ const CSS = `
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
+
+.regcheck-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.regcheck-chip.retake {
+  background: #eaf2ff;
+  color: #1d4ed8;
+}
+
+.regcheck-retake-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.regcheck-retake-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.regcheck-retake-time {
+  margin-top: 9px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 .regcheck-empty { padding:22px 14px; background:#fff; border-radius:16px;
   color:#64748b; font-size:13px; text-align:center; }
 .regcheck-count { margin-top:12px; font-size:11px; font-weight:700; color:#64748b; text-align:center; }
@@ -258,14 +293,18 @@ international_language: String(raw.international_language ?? '').trim(),
 time_label: String(raw.time_label ?? '').trim(),
 display_time: String(raw.display_time ?? '').trim(),
 edit_count: Math.max(0, Number(raw.edit_count) || 0),
-repeat_subject_count: Number(raw.repeat_subject_count) || 0
+repeat_subject_count: Number(raw.repeat_subject_count) || 0,
+retake_registered: raw.retake_registered === true,
+retake_edit_count: Math.max(0, Number(raw.retake_edit_count) || 0),
+retake_time_label: String(raw.retake_time_label ?? '').trim(),
+retake_display_time: String(raw.retake_display_time ?? '').trim()
   })).filter(r => r.student_code);
 }
 
 function updateRooms() {
   const select = id('regcheckRoom');
   const oldValue = select.value;
-  select.replaceChildren(new Option('ทุกห้องที่ได้รับสิทธิ์', ''));
+  select.replaceChildren();
   const rooms = [...new Set(ui.rows.map(row => row.class_room).filter(Boolean))]
     .sort((a,b) => a.localeCompare(b, 'th', {numeric:true}));
   rooms.forEach(room => select.add(new Option(room, room)));
@@ -319,10 +358,34 @@ const rows = scopeRows.filter(row => {
     nameWrap.append(textEl('div','regcheck-item-name',row.student_name || 'ไม่ระบุชื่อ'));
     nameWrap.append(textEl('div','regcheck-item-meta',`${row.student_code} • ${row.class_room || '-'} • เลขที่ ${row.student_no || '-'}`));
     head.append(nameWrap);
-    head.append(textEl('span',`regcheck-chip ${row.registered ? 'ok' : 'pending'}`,
-      row.registered ? 'ลงทะเบียนแล้ว' : 'ยังไม่ลงทะเบียน'));
+const badges = textEl('div', 'regcheck-badges', '');
+
+badges.append(
+  textEl(
+    'span',
+    `regcheck-chip ${row.registered ? 'ok' : 'pending'}`,
+    row.registered ? 'ลงทะเบียนแล้ว' : 'ยังไม่ลงทะเบียน'
+  )
+);
+
+if (row.retake_registered && row.repeat_subject_count > 0) {
+  badges.append(
+    textEl('span', 'regcheck-chip retake', 'ลงเรียนซ้ำแล้ว')
+  );
+}
+
+head.append(badges);
     card.append(head);
     if (row.registered && row.study_plan) card.append(textEl('div','regcheck-item-extra',`แผนการเรียน: ${row.study_plan}`));
+    if (row.registered && row.international_language) {
+  card.append(
+    textEl(
+      'div',
+      'regcheck-item-extra',
+      `🌐 ภาษานานาชาติ: ${row.international_language}`
+    )
+  );
+}
     if (row.registered && row.display_time) {
   const label = row.edit_count > 0
     ? 'แก้ไขล่าสุด'
@@ -340,8 +403,52 @@ card.append(
   )
 );
 }
-    if (row.registered && row.international_language) card.append(textEl('div','regcheck-item-extra',`ภาษานานาชาติ: ${row.international_language}`));
-    if (row.repeat_subject_count > 0) card.append(textEl('div','regcheck-item-extra',`ลงทะเบียนเรียนซ้ำ: ${row.repeat_subject_count} วิชา`));
+    
+    if (row.retake_registered && row.repeat_subject_count > 0) {
+
+  const retakeSection = textEl(
+    'div',
+    'regcheck-retake-section',
+    ''
+  );
+
+  retakeSection.append(
+    textEl(
+      'div',
+      'regcheck-retake-title',
+      '📚 การลงทะเบียนเรียนซ้ำ'
+    )
+  );
+
+  retakeSection.append(
+    textEl(
+      'div',
+      'regcheck-item-extra',
+      `จำนวนรายวิชาที่ติด: ${row.repeat_subject_count} วิชา`
+    )
+  );
+
+  if (row.retake_display_time) {
+
+    const label = row.retake_edit_count > 0
+      ? 'แก้ไขเรียนซ้ำล่าสุด'
+      : 'ยืนยันเรียนซ้ำครั้งแรก';
+
+    const editInfo = row.retake_edit_count > 0
+      ? ` • แก้ไข ${row.retake_edit_count} ครั้ง`
+      : '';
+
+    retakeSection.append(
+      textEl(
+        'div',
+        'regcheck-item-extra regcheck-retake-time',
+        `🕒 ${label}: ${row.retake_display_time}${editInfo}`
+      )
+    );
+  }
+
+  card.append(retakeSection);
+}
     list.append(card);
   });
   id('regcheckCount').textContent = rows.length > maxItems
@@ -444,7 +551,7 @@ function initRegistrationCheck() {
       </div>
       <div class="regcheck-panel">
         <div class="regcheck-control"><label for="regcheckRoom">ห้องเรียน</label>
-          <select id="regcheckRoom"><option value="">ทุกห้องที่ได้รับสิทธิ์</option></select></div>
+          <select id="regcheckRoom"></select></div>
         <div class="regcheck-filter"
      role="group"
      aria-label="กรองสถานะการลงทะเบียน">
