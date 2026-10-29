@@ -142,22 +142,107 @@ function textEl(tag, className, value) {
   return node;
 }
 
+let registrationRealtimeChannel = null;
+let registrationRefreshPending = false;
+
+function registrationViewIsOpen() {
+  const view = id('registrationCheckView');
+  return !!view && !view.classList.contains('hidden');
+}
+
+function startRegistrationRealtime() {
+  if (registrationRealtimeChannel || !getTeacherToken()) return;
+
+  registrationRealtimeChannel = supabaseClient
+    .channel('teacher-registration-live-signal')
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'teacher_registration_signal'
+      },
+      () => {
+        if (!registrationViewIsOpen()) return;
+
+        console.info(
+          '[TeacherPR Registration] REALTIME RECEIVED'
+        );
+
+        if (ui.isLoading) {
+          registrationRefreshPending = true;
+        } else {
+          void loadRegistrationCheck();
+        }
+      }
+    )
+    .subscribe(status => {
+      if (!registrationViewIsOpen()) return;
+
+      if (status === 'SUBSCRIBED') {
+        console.info(
+          '[TeacherPR Registration] REALTIME CONNECTED'
+        );
+
+        // โหลดซ้ำหลังเชื่อมต่อ เพื่อไม่พลาดข้อมูลใหม่
+        if (ui.isLoading) {
+          registrationRefreshPending = true;
+        } else {
+          void loadRegistrationCheck();
+        }
+
+      } else if (
+        status === 'CHANNEL_ERROR' ||
+        status === 'TIMED_OUT'
+      ) {
+        setStatus(
+          'การเชื่อมต่อ Real-time ขัดข้อง สามารถกดโหลดข้อมูลล่าสุดได้',
+          'error'
+        );
+      }
+    });
+}
+
+function stopRegistrationRealtime() {
+  if (registrationRealtimeChannel) {
+    void supabaseClient.removeChannel(
+      registrationRealtimeChannel
+    );
+
+    registrationRealtimeChannel = null;
+  }
+
+  registrationRefreshPending = false;
+}
+
 function closeRegistrationCheck() {
   const view = id('registrationCheckView');
   if (!view) return;
+
+  stopRegistrationRealtime();
+
   view.classList.add('hidden');
   view.setAttribute('aria-hidden', 'true');
-  document.body.style.overflow = view.dataset.previousBodyOverflow || '';
+  document.body.style.overflow =
+    view.dataset.previousBodyOverflow || '';
 }
 
 function openRegistrationCheck() {
   const view = id('registrationCheckView');
   if (!view) return;
-  view.dataset.previousBodyOverflow = document.body.style.overflow;
+
+  view.dataset.previousBodyOverflow =
+    document.body.style.overflow;
+
   document.body.style.overflow = 'hidden';
   view.classList.remove('hidden');
   view.setAttribute('aria-hidden', 'false');
-  if (!ui.hasLoaded) void loadRegistrationCheck();
+
+  // เริ่มรับสัญญาณ Real-time
+  startRegistrationRealtime();
+
+  // โหลดข้อมูลล่าสุดทุกครั้งที่เปิดเมนู
+  void loadRegistrationCheck();
 }
 
 function normalizeRows(rows) {
@@ -302,6 +387,18 @@ async function loadRegistrationCheck() {
     button.disabled = false;
     button.textContent = '↻ โหลดข้อมูลล่าสุด';
     ui.isLoading = false;
+
+    // หากมีข้อมูลใหม่เข้ามาระหว่างกำลังโหลด
+    // ให้โหลดข้อมูลล่าสุดอีกครั้ง
+    if (
+      registrationRefreshPending &&
+      registrationViewIsOpen()
+    ) {
+      registrationRefreshPending = false;
+      void loadRegistrationCheck();
+    } else {
+      registrationRefreshPending = false;
+    }
   }
 }
 
