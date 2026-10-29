@@ -1,6 +1,10 @@
+/* TeacherPR registration-check: classic script, local file + GitHub Pages compatible */
+(function () {
+'use strict';
+
 /**
  * TeacherPR - ตรวจสอบการลงทะเบียน 2/2569 (โมดูลชั่วคราว)
- * ติดตั้ง: <script type="module" src="./modules/registration-check.js?v=2569-2-1"></script>
+ * ติดตั้ง: <script src="./modules/registration-check.js?v=2569-2-2"></script>
  * ถอดออก: ลบบรรทัด <script> ดังกล่าวใน index.html เพียงบรรทัดเดียว
  *
  * ความปลอดภัย:
@@ -299,4 +303,4 @@ if (document.readyState === 'loading') {
   initRegistrationCheck();
 }
 
-export { initRegistrationCheck };
+})();
