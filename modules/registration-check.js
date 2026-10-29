@@ -61,6 +61,29 @@ const CSS = `
   width:100%; height:44px; padding:0 12px; border:1px solid #d6e1ec;
   border-radius:13px; background:#fff; color:#17324a; font:600 14px Kanit,sans-serif;
 }
+.regcheck-filter {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.regcheck-filter button {
+  min-height: 42px;
+  padding: 8px 4px;
+  border: 1px solid #d6e1ec;
+  border-radius: 11px;
+  background: #f8fafc;
+  color: #64748b;
+  font: 700 12px Kanit, sans-serif;
+  cursor: pointer;
+}
+
+.regcheck-filter button.is-active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
 .regcheck-refresh {
   width:100%; min-height:45px; background:#2563eb; color:white;
   border:0; border-radius:14px; font:800 14px Kanit,sans-serif;
@@ -80,6 +103,18 @@ const CSS = `
 .regcheck-chip.ok { color:#15803d; background:#e9f8ef; }
 .regcheck-chip.pending { color:#b45309; background:#fff7e8; }
 .regcheck-item-extra { margin-top:7px; font-size:12px; color:#475569; line-height:1.65; }
+.regcheck-item-time {
+  margin-top: 10px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #effaf3;
+  border: 1px solid #c8ebd4;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
 .regcheck-empty { padding:22px 14px; background:#fff; border-radius:16px;
   color:#64748b; font-size:13px; text-align:center; }
 .regcheck-count { margin-top:12px; font-size:11px; font-weight:700; color:#64748b; text-align:center; }
@@ -134,8 +169,11 @@ function normalizeRows(rows) {
     student_no: raw.student_no == null ? '' : String(raw.student_no),
     registered: raw.registered === true,
     study_plan: String(raw.study_plan ?? '').trim(),
-    international_language: String(raw.international_language ?? '').trim(),
-    repeat_subject_count: Number(raw.repeat_subject_count) || 0
+international_language: String(raw.international_language ?? '').trim(),
+time_label: String(raw.time_label ?? '').trim(),
+display_time: String(raw.display_time ?? '').trim(),
+edit_count: Math.max(0, Number(raw.edit_count) || 0),
+repeat_subject_count: Number(raw.repeat_subject_count) || 0
   })).filter(r => r.student_code);
 }
 
@@ -153,9 +191,24 @@ function renderRows() {
   const filterRoom = id('regcheckRoom').value;
   const keyword = id('regcheckSearch').value.trim().toLocaleLowerCase('th');
   const scopeRows = ui.rows.filter(row => !filterRoom || row.class_room === filterRoom);
-  const rows = scopeRows.filter(row => !keyword ||
+const statusFilter =
+  document.querySelector(
+    '.regcheck-filter button.is-active'
+  )?.dataset.status || 'registered';
+
+const rows = scopeRows.filter(row => {
+  const matchStatus =
+    statusFilter === 'all' ||
+    (statusFilter === 'registered' && row.registered) ||
+    (statusFilter === 'pending' && !row.registered);
+
+  const matchSearch =
+    !keyword ||
     row.student_code.toLocaleLowerCase('th').includes(keyword) ||
-    row.student_name.toLocaleLowerCase('th').includes(keyword));
+    row.student_name.toLocaleLowerCase('th').includes(keyword);
+
+  return matchStatus && matchSearch;
+});
 
   id('regcheckTotal').textContent = ui.hasLoaded ? scopeRows.length : '–';
   id('regcheckDone').textContent = ui.hasLoaded ? scopeRows.filter(x=>x.registered).length : '–';
@@ -185,6 +238,23 @@ function renderRows() {
       row.registered ? 'ลงทะเบียนแล้ว' : 'ยังไม่ลงทะเบียน'));
     card.append(head);
     if (row.registered && row.study_plan) card.append(textEl('div','regcheck-item-extra',`แผนการเรียน: ${row.study_plan}`));
+    if (row.registered && row.display_time) {
+  const label = row.edit_count > 0
+    ? 'แก้ไขล่าสุด'
+    : 'ยืนยันครั้งแรก';
+
+  const editInfo = row.edit_count > 0
+    ? ` • แก้ไข ${row.edit_count} ครั้ง`
+    : '';
+
+card.append(
+  textEl(
+    'div',
+    'regcheck-item-extra regcheck-item-time',
+    `🕒 ${label}: ${row.display_time}${editInfo}`
+  )
+);
+}
     if (row.registered && row.international_language) card.append(textEl('div','regcheck-item-extra',`ภาษานานาชาติ: ${row.international_language}`));
     if (row.repeat_subject_count > 0) card.append(textEl('div','regcheck-item-extra',`ลงทะเบียนเรียนซ้ำ: ${row.repeat_subject_count} วิชา`));
     list.append(card);
@@ -278,6 +348,30 @@ function initRegistrationCheck() {
       <div class="regcheck-panel">
         <div class="regcheck-control"><label for="regcheckRoom">ห้องเรียน</label>
           <select id="regcheckRoom"><option value="">ทุกห้องที่ได้รับสิทธิ์</option></select></div>
+        <div class="regcheck-filter"
+     role="group"
+     aria-label="กรองสถานะการลงทะเบียน">
+
+  <button type="button"
+          data-status="registered"
+          class="is-active"
+          aria-pressed="true">
+    ลงทะเบียนแล้ว
+  </button>
+
+  <button type="button"
+          data-status="pending"
+          aria-pressed="false">
+    ยังไม่ลงทะเบียน
+  </button>
+
+  <button type="button"
+          data-status="all"
+          aria-pressed="false">
+    ทั้งหมด
+  </button>
+
+</div>
         <div class="regcheck-control"><label for="regcheckSearch">ค้นหานักเรียน</label>
           <input id="regcheckSearch" placeholder="รหัสนักเรียน / ชื่อ-นามสกุล" autocomplete="off" /></div>
         <button type="button" id="regcheckRefresh" class="regcheck-refresh">↻ โหลดข้อมูลล่าสุด</button>
@@ -293,6 +387,20 @@ function initRegistrationCheck() {
   id('regcheckRefresh').addEventListener('click',loadRegistrationCheck);
   id('regcheckRoom').addEventListener('change',renderRows);
   id('regcheckSearch').addEventListener('input',renderRows);
+  page.querySelectorAll('.regcheck-filter button').forEach(btn => {
+  btn.addEventListener('click', () => {
+
+    page.querySelectorAll('.regcheck-filter button')
+      .forEach(item => {
+        const active = item === btn;
+
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
+
+    renderRows();
+  });
+});
   page.addEventListener('keydown', event => { if(event.key === 'Escape') closeRegistrationCheck(); });
   renderRows();
 }
