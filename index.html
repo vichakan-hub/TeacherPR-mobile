@@ -2042,26 +2042,72 @@ async function loginWithTeacherRpc(
    * =====================================================
    */
 
-  const { data, error } =
-    await supabaseClient.rpc(
-      'login_teacher_session',
+
+  // Login ผ่าน Cloudflare Worker
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 15000);
+
+  let data;
+
+  try {
+
+    const response = await fetch(
+      'https://teacherpr-login-guard.vichakan.workers.dev/login',
       {
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-store',
 
-        p_teacher_code:
-          teacherCode,
+        headers: {
+          'Content-Type': 'application/json'
+        },
 
-        p_password:
-          password
+        body: JSON.stringify({
+          p_teacher_code: teacherCode,
+          p_password: password
+        }),
 
+        signal: controller.signal
       }
     );
 
+    data = await response.json().catch(() => null);
 
-  if(error){
+    if(!response.ok){
+      throw new Error(
+        data?.message ||
+        (
+          response.status === 429
+            ? 'มีคำขอเข้าสู่ระบบมากเกินไป กรุณาลองใหม่ภายหลัง'
+            : 'ไม่สามารถเข้าสู่ระบบได้'
+        )
+      );
+    }
+
+  }catch(error){
+
+    if(error?.name === 'AbortError'){
+      throw new Error(
+        'การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง'
+      );
+    }
+
+    if(error instanceof TypeError){
+      throw new Error(
+        'ไม่สามารถติดต่อระบบเข้าสู่ระบบได้'
+      );
+    }
 
     throw error;
 
+  }finally{
+    clearTimeout(timeoutId);
   }
+
 
 
   const result =
