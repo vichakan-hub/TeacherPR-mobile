@@ -1,4 +1,4 @@
-const CACHE_NAME = 'teacher-mobile-v1';
+const CACHE_NAME = 'teacher-mobile-v3';
 
 const APP_SHELL = [
   './',
@@ -51,9 +51,15 @@ self.addEventListener('activate', event => {
         .then(keys => {
           return Promise.all(
             keys
-              .filter(key => {
-                return key !== CACHE_NAME;
-              })
+
+.filter(key => {
+  // ลบเฉพาะ Cache เก่าของ TeacherPR Mobile
+  return (
+    key.startsWith('teacher-mobile-') &&
+    key !== CACHE_NAME
+  );
+})
+
               .map(key => {
                 return caches.delete(key);
               })
@@ -121,15 +127,21 @@ self.addEventListener('fetch', event => {
    * ถ้า offline ใช้หน้า ./ ที่ cache ไว้
    * =====================================================
    */
-  if(
-    request.mode === 'navigate'
-  ){
 
-    event.respondWith(
+if(
+  request.mode === 'navigate'
+){
 
-      fetch(request)
+  event.respondWith(
 
-        .then(async response => {
+    // โหลด HTML ล่าสุดจากเครือข่าย
+    // ไม่ใช้ HTTP Cache เก่าของ Browser
+    fetch(request, {
+      cache: 'no-store'
+    })
+
+      .then(async response => {
+
 
           /*
            * เก็บหน้าใหม่ล่าสุดลง Cache

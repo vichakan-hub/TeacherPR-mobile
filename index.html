@@ -7238,14 +7238,344 @@ async function init(){
   }
 
 }
-    document.addEventListener('DOMContentLoaded',init);
-    if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(()=>console.log('Teacher Mobile service worker registered')).catch(err=>console.warn('Service worker registration failed:',err));});}
+    
+/* =====================================================
+   TeacherPR Mobile — App Version Update
+   ===================================================== */
+
+const TEACHERPR_APP_VERSION = '2026.11.05.1';
+
+let teacherVersionReady = false;
+let teacherVersionChecking = false;
+let teacherVersionLastCheck = 0;
+
+function showTeacherUpdateNotice(version) {
+
+  if(document.getElementById('teacherUpdateNotice')){
+    return;
+  }
+
+  const notice = document.createElement('div');
+
+  notice.id = 'teacherUpdateNotice';
+
+  Object.assign(notice.style, {
+    position: 'fixed',
+    left: '12px',
+    right: '12px',
+    bottom: 'calc(16px + env(safe-area-inset-bottom))',
+    zIndex: '999999',
+    padding: '16px',
+    borderRadius: '18px',
+    background: '#ffffff',
+    color: '#17324d',
+    boxShadow: '0 8px 32px rgba(0,0,0,.25)',
+    fontFamily: 'Kanit, sans-serif',
+    textAlign: 'center'
+  });
+
+  const title = document.createElement('div');
+  title.textContent = 'มี TeacherPR Mobile เวอร์ชันใหม่';
+  title.style.fontWeight = '800';
+
+  const description = document.createElement('div');
+  description.textContent =
+    'กรุณาบันทึกงานที่กำลังทำก่อนอัปเดต';
+  description.style.margin = '8px 0';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'อัปเดตตอนนี้';
+
+  Object.assign(button.style, {
+    background: '#2563eb',
+    color: '#ffffff',
+    padding: '10px 22px',
+    borderRadius: '12px',
+    border: '0',
+    fontWeight: '800'
+  });
+
+  button.addEventListener('click', () => {
+    reloadTeacherApp(version);
+  });
+
+  const later = document.createElement('button');
+  later.type = 'button';
+  later.textContent = 'ภายหลัง';
+  later.style.marginLeft = '10px';
+
+  later.addEventListener('click', () => {
+    notice.remove();
+  });
+
+  notice.append(title, description, button, later);
+  document.body.appendChild(notice);
+}
+
+function reloadTeacherApp(version) {
+
+  try {
+    sessionStorage.setItem(
+      'teacherpr_update_attempt',
+      version
+    );
+  } catch(error) {
+    console.warn('Cannot save update attempt', error);
+  }
+
+  const url = new URL(window.location.href);
+
+  // เปลี่ยน URL เพื่อเลี่ยงไฟล์หน้าเก่าที่ Cache ไว้
+  url.searchParams.set('appv', version);
+
+  window.location.replace(url.toString());
+}
+
+async function checkTeacherAppVersion(force = false) {
+
+  if(!teacherVersionReady) return;
+  if(!navigator.onLine) return;
+  if(teacherVersionChecking) return;
+
+  const now = Date.now();
+
+  if(
+    !force &&
+    now - teacherVersionLastCheck < 60000
+  ){
+    return;
+  }
+
+  teacherVersionLastCheck = now;
+  teacherVersionChecking = true;
+
+  try {
+
+    const response = await fetch(
+      './version.json?t=' + Date.now(),
+      {
+        cache: 'no-store'
+      }
+    );
+
+    if(!response.ok) return;
+
+    const info = await response.json();
+
+    if(info.app !== 'TeacherPR Mobile') return;
+
+    const latestVersion =
+      String(info.version || '').trim();
+
+    if(
+      !/^[a-zA-Z0-9._-]{1,40}$/.test(latestVersion) ||
+      latestVersion === TEACHERPR_APP_VERSION
+    ){
+      return;
+    }
+
+    console.log(
+      'New TeacherPR Mobile version:',
+      latestVersion
+    );
+
+    // ยังไม่ Login: อัปเดตได้โดยไม่กระทบงาน
+    const onLoginScreen =
+      !state.currentUser &&
+      !el('loginView')?.classList.contains('hidden');
+
+    let alreadyAttempted = false;
+
+    try {
+      alreadyAttempted =
+        sessionStorage.getItem(
+          'teacherpr_update_attempt'
+        ) === latestVersion;
+    } catch(error) {
+      console.warn('Cannot read update attempt', error);
+    }
+
+    if(onLoginScreen && !alreadyAttempted){
+
+      reloadTeacherApp(latestVersion);
+      return;
+
+    }
+
+    // Login อยู่: ไม่รีเฟรชทันที
+    showTeacherUpdateNotice(latestVersion);
+
+  }catch(error){
+
+    console.warn(
+      'TeacherPR version check failed',
+      error
+    );
+
+  }finally{
+
+    teacherVersionChecking = false;
+
+  }
+}
+
+// รอให้ระบบกู้คืน Session เสร็จก่อนตรวจสอบเวอร์ชัน
+document.addEventListener(
+  'DOMContentLoaded',
+  async () => {
+
+    try {
+      await init();
+    } finally {
+      teacherVersionReady = true;
+      checkTeacherAppVersion(true);
+    }
+
+  }
+);
+
+// ตรวจสอบเมื่อกลับมาเปิด PWA
+document.addEventListener(
+  'visibilitychange',
+  () => {
+    if(document.visibilityState === 'visible'){
+      checkTeacherAppVersion();
+    }
+  }
+);
+
+// ตรวจสอบเมื่อเปิดหน้าอีกครั้ง
+window.addEventListener(
+  'pageshow',
+  () => checkTeacherAppVersion()
+);
+
+// ตรวจสอบเมื่ออินเทอร์เน็ตกลับมา
+window.addEventListener(
+  'online',
+  () => checkTeacherAppVersion(true)
+);
+
+// ตรวจสอบเป็นระยะเมื่อเปิดแอปค้างไว้
+setInterval(
+  () => {
+    if(document.visibilityState === 'visible'){
+      checkTeacherAppVersion();
+    }
+  },
+  5 * 60 * 1000
+);
+
+    
+/* ==============================================
+   TeacherPR Mobile — PWA Update Checker
+   ============================================== */
+
+if (
+  'serviceWorker' in navigator &&
+  (
+    location.protocol === 'https:' ||
+    location.hostname === 'localhost' ||
+    location.hostname === '127.0.0.1'
+  )
+) {
+
+  window.addEventListener('load', async () => {
+
+    try {
+
+      const registration =
+        await navigator.serviceWorker.register(
+          './sw.js',
+          {
+            updateViaCache: 'none'
+          }
+        );
+
+      console.log(
+        'TeacherPR Mobile Service Worker registered'
+      );
+
+      let lastUpdateCheck = 0;
+
+      async function checkForPwaUpdate() {
+
+        if (!navigator.onLine) return;
+
+        const now = Date.now();
+
+        // ป้องกันการตรวจสอบถี่เกินไป
+        if (now - lastUpdateCheck < 60000) {
+          return;
+        }
+
+        lastUpdateCheck = now;
+
+        try {
+
+          await registration.update();
+
+          console.log(
+            'TeacherPR PWA update checked'
+          );
+
+        } catch (error) {
+
+          console.warn(
+            'TeacherPR PWA update check failed',
+            error
+          );
+
+        }
+      }
+
+      // ตรวจสอบเมื่อเปิดแอป
+      checkForPwaUpdate();
+
+      // ตรวจสอบเมื่อกลับมาใช้งาน
+      document.addEventListener(
+        'visibilitychange',
+        () => {
+          if (document.visibilityState === 'visible') {
+            checkForPwaUpdate();
+          }
+        }
+      );
+
+      // ตรวจสอบเมื่อกลับมาที่หน้าเว็บ
+      window.addEventListener(
+        'pageshow',
+        checkForPwaUpdate
+      );
+
+      // ตรวจสอบเมื่ออินเทอร์เน็ตกลับมา
+      window.addEventListener(
+        'online',
+        checkForPwaUpdate
+      );
+
+    } catch (error) {
+
+      console.warn(
+        'TeacherPR Service Worker registration failed',
+        error
+      );
+
+    }
+
+  });
+
+}
+
 
 
   </script>
 
   <!-- Temporary registration check: Classic Script works with file:/// and GitHub Pages -->
-  <script src="./modules/registration-check.js?v=2569-2-2"></script>
+  
+<script src="./modules/registration-check.js?v=2026.11.05.1"></script>
+
 
 </body>
 </html>
