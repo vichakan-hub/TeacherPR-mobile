@@ -1,4 +1,4 @@
-const CACHE_NAME = 'teacher-mobile-v3';
+const CACHE_NAME = 'teacher-mobile-v1';
 
 const APP_SHELL = [
   './',
